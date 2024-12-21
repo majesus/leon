@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>La Aventura Espacial de León - Versión Mega Divertida</title>
+    <title>La Aventura Espacial de León - Versión Revisada</title>
     <style>
         /* Ajustes generales de la página */
         body {
@@ -20,7 +20,7 @@
             border: 2px solid #333;
         }
 
-        /* Overlays: inicio, final, etc. */
+        /* Overlays: inicio, game over, etc. */
         .overlay {
             position: absolute;
             color: white;
@@ -46,43 +46,26 @@
             animation: blinking 1.2s infinite;
         }
         @keyframes blinking {
-            0%   { opacity: 1;   }
+            0%   { opacity: 1; }
             50%  { opacity: 0.2; }
-            100% { opacity: 1;   }
+            100% { opacity: 1; }
         }
 
-        /* Superposición para la transición de pantalla negra */
-        #blackOverlay {
+        /* Pantalla Roja para "LOSER" */
+        #redScreen {
             position: absolute;
             top: 0; left: 0;
-            width: 0; 
-            height: 0;
-            background: black;
-            opacity: 0; 
-            z-index: 5;
-        }
-
-        /* Contenedor para los marcianitos bailando */
-        #dancingAliens {
-            position: absolute;
-            top: 0;
-            left: 0;
             width: 800px;
             height: 600px;
-            pointer-events: none;
-            display: none; /* Se mostrará tras la "muerte" */
+            background: red;
+            display: none; /* Se activará tras la colisión */
+            justify-content: center;
+            align-items: center;
         }
-        .alien {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            background-color: green;
-            border-radius: 50%;
-            animation: dance 1s infinite alternate;
-        }
-        @keyframes dance {
-            0%   { transform: translateY(0);   }
-            100% { transform: translateY(-20px); }
+        #loserText {
+            font-size: 100px;
+            font-weight: bold;
+            color: white;
         }
     </style>
 </head>
@@ -103,16 +86,10 @@
         </div>
     </div>
 
-    <!-- Pantalla final (ahora será dinámica) -->
-    <div id="gameOver" class="overlay" style="font-size: 60px;">
-        <!-- Se rellena dinámicamente con “¡Loser!” -->
+    <!-- Pantalla roja final -->
+    <div id="redScreen">
+        <div id="loserText">LOSER</div>
     </div>
-
-    <!-- Superposición negra para la transición de "muerte" -->
-    <div id="blackOverlay"></div>
-
-    <!-- Contenedor para los marcianitos bailando -->
-    <div id="dancingAliens"></div>
 
     <script>
         /********************************************
@@ -126,12 +103,10 @@
 
         // Referencias a los elementos HTML
         const startScreenDiv = document.getElementById('startScreen');
-        const gameOverDiv = document.getElementById('gameOver');
         const scoreValueDiv = document.getElementById('scoreValue');
-        const blackOverlay = document.getElementById('blackOverlay');
-        const dancingAliensDiv = document.getElementById('dancingAliens');
+        const redScreen = document.getElementById('redScreen');
 
-        let gameState = 'start'; // 'start', 'playing', 'gameOver', 'dance'
+        let gameState = 'start'; // 'start', 'playing', 'gameOver'
         let score = 0;
 
         let bullets = [];
@@ -148,7 +123,7 @@
             color: '#FFD700'
         };
 
-        // Tipos de enemigos, con distintas características
+        // Tipos de enemigos con características distintas
         const enemyTypes = [
             { color: '#F00', width: 30, height: 30, speed: 2,   points: 10 },
             { color: '#0F0', width: 40, height: 40, speed: 1.5, points: 20 },
@@ -187,12 +162,7 @@
 
         function resetGame() {
             gameState = 'playing';
-            gameOverDiv.style.display = 'none';
-            blackOverlay.style.width = '0';
-            blackOverlay.style.height = '0';
-            blackOverlay.style.opacity = '0';
-            dancingAliensDiv.style.display = 'none';
-            dancingAliensDiv.innerHTML = ''; // Vaciar bailarines
+            redScreen.style.display = 'none'; // Ocultamos la pantalla roja
             score = 0;
             scoreValueDiv.textContent = score;
             enemies = [];
@@ -246,10 +216,10 @@
             enemies = enemies.filter(enemy => {
                 enemy.y += enemy.speed;
 
-                // Colisión jugador-enemigo => disparar secuencia de "muerte"
+                // Colisión jugador-enemigo => secuencia de muerte inmediata
                 if (checkCollision(enemy, player)) {
                     createExplosion(player.x + player.width / 2, player.y + player.height / 2);
-                    triggerDeathSequence();
+                    gameOverImmediate();
                     return false;
                 }
 
@@ -263,7 +233,7 @@
                         return false;
                     }
                 }
-                // Enemigo sigue en pantalla
+
                 return enemy.y < canvas.height;
             });
 
@@ -318,7 +288,6 @@
         /********************************************
          * Funciones auxiliares
          ********************************************/
-        // Crea un enemigo con características aleatorias
         function createRandomEnemy() {
             const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
             enemies.push({
@@ -349,7 +318,7 @@
                     y: y,
                     vx: Math.cos(angle) * 5,
                     vy: Math.sin(angle) * 5,
-                    life: 50
+                    life: 30 // Duración de las partículas
                 });
             }
         }
@@ -385,7 +354,7 @@
             ctx.restore();
         }
 
-        // Dibujar enemigo en forma de triángulo según su tamaño y color
+        // Dibujar enemigo en forma de triángulo
         function drawTriangleEnemy(enemy) {
             ctx.fillStyle = enemy.color;
             ctx.beginPath();
@@ -396,58 +365,10 @@
             ctx.fill();
         }
 
-        // Secuencia de muerte: pantalla negra, marcianitos bailando, “¡Loser!”
-        function triggerDeathSequence() {
+        // Muerte inmediata: pantalla roja y texto "LOSER"
+        function gameOverImmediate() {
             gameState = 'gameOver';
-            // Expandir overlay negro
-            expandBlackOverlay(() => {
-                // Crear marcianitos bailando
-                createDancingAliens();
-                // Mostrar div con marcianitos
-                dancingAliensDiv.style.display = 'block';
-                // Tras 3 segundos, mostrar “¡Loser!”
-                setTimeout(() => {
-                    dancingAliensDiv.style.display = 'none';
-                    gameOverDiv.textContent = '¡Loser!';
-                    gameOverDiv.style.display = 'block';
-                }, 3000);
-            });
-        }
-
-        // Función que expande el overlay negro en toda la pantalla
-        function expandBlackOverlay(callback) {
-            blackOverlay.style.width = canvas.width + 'px';
-            blackOverlay.style.height = canvas.height + 'px';
-            blackOverlay.style.opacity = '1';
-
-            // Pequeño retardo para que se note el “fade”
-            setTimeout(() => {
-                callback();
-            }, 1000);
-        }
-
-        // Generar varios marcianitos bailando aleatoriamente
-        function createDancingAliens() {
-            for (let i = 0; i < 10; i++) {
-                const alien = document.createElement('div');
-                alien.classList.add('alien');
-                // Posiciones aleatorias en el contenedor
-                alien.style.top = Math.random() * (600 - 40) + 'px';
-                alien.style.left = Math.random() * (800 - 40) + 'px';
-                // Color aleatorio
-                alien.style.backgroundColor = getRandomColor();
-                dancingAliensDiv.appendChild(alien);
-            }
-        }
-
-        // Generar color aleatorio para los alien
-        function getRandomColor() {
-            const letters = '0123456789ABCDEF';
-            let color = '#';
-            for (let i = 0; i < 6; i++) {
-                color += letters[Math.floor(Math.random() * 16)];
-            }
-            return color;
+            redScreen.style.display = 'flex'; // Muestra pantalla roja
         }
 
         /********************************************
@@ -459,7 +380,6 @@
             requestAnimationFrame(gameLoop);
         }
         gameLoop();
-
     </script>
 </body>
 </html>
