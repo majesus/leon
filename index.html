@@ -17,8 +17,9 @@
 
         #gameCanvas {
             border: 2px solid #333;
-            background: url('background_space.jpg') no-repeat center center;
-            background-size: cover;
+            /* Eliminamos el fondo aquí */
+            /* background: url('background_space.jpg') no-repeat center center; */
+            /* background-size: cover; */
         }
 
         /* Pantalla roja para "LOSER" */
@@ -49,7 +50,10 @@
             background: rgba(0, 0, 0, 0.8);
             padding: 20px;
             border-radius: 10px;
-            display: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
         #score {
@@ -67,11 +71,12 @@
     <div id="score">Puntos: <span id="scoreValue">0</span></div>
 
     <!-- Lienzo del juego -->
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
 
     <!-- Pantalla de inicio -->
     <div id="startScreen" class="overlay">
         <div style="font-size: 72px; color: #FFD700; margin-bottom: 20px;">LEÓN</div>
+        <div style="font-size: 48px; color: #FFD700; margin-bottom: 20px;">¡Adelante, LEÓN!</div>
         Presiona ENTER para comenzar<br>
         <div style="font-size: 24px; margin-top: 20px;">
             Flechas para mover<br>
@@ -86,13 +91,19 @@
 
     <script>
         /*******************************************
+         * Cargar imágenes de fondo
+         *******************************************/
+        const backgroundSpace = new Image();
+        backgroundSpace.src = 'background_space.jpg';
+
+        const backgroundCave = new Image();
+        backgroundCave.src = 'background_cave.jpg';
+
+        /*******************************************
          * Variables y configuración inicial
          *******************************************/
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-
-        canvas.width = 800;
-        canvas.height = 600;
 
         const scoreValueDiv = document.getElementById('scoreValue');
         const startScreenDiv = document.getElementById('startScreen');
@@ -109,8 +120,8 @@
         const player = {
             x: canvas.width / 2,
             y: canvas.height - 100,
-            width: 50,
-            height: 50,
+            width: 30, // Reducido de 50 a 30
+            height: 30, // Reducido de 50 a 30
             speed: 5,
             color: '#FFD700'
         };
@@ -163,9 +174,6 @@
             gameState = 'playingSpace';
             startScreenDiv.style.display = 'none';
             resetGame();
-            // Cambiar fondo para espacio
-            canvas.style.background = "url('background_space.jpg') no-repeat center center";
-            canvas.style.backgroundSize = "cover";
         }
 
         /*******************************************
@@ -181,9 +189,6 @@
             explosionParticles = [];
             player.x = canvas.width / 2;
             player.y = canvas.height - 100;
-            // Resetear fondo a espacio
-            canvas.style.background = "url('background_space.jpg') no-repeat center center";
-            canvas.style.backgroundSize = "cover";
         }
 
         /*******************************************
@@ -315,9 +320,12 @@
 
         // Dibujar objetos
         function drawObjects() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Dibujar el fondo según el estado del juego
+            if (gameState === 'playingSpace') {
+                ctx.drawImage(backgroundSpace, 0, 0, canvas.width, canvas.height);
+            } else if (gameState === 'playingCave') {
+                ctx.drawImage(backgroundCave, 0, 0, canvas.width, canvas.height);
+            }
 
             // Dibujar jugador
             drawPlayer();
@@ -404,9 +412,6 @@
          *******************************************/
         function enterCaveMode() {
             gameState = 'playingCave';
-            // Cambiar fondo a caverna
-            canvas.style.background = "url('background_cave.jpg') no-repeat center center";
-            canvas.style.backgroundSize = "cover";
             // Opcional: ajustar posición del jugador si es necesario
             player.x = 50; // Por ejemplo, empezar en la izquierda
             player.y = canvas.height / 2 - player.height / 2;
@@ -419,8 +424,16 @@
             if (gameState === 'playingSpace' || gameState === 'playingCave') {
                 updateObjects();
                 drawObjects();
+            } else if (gameState === 'start') {
+                drawStartScreenBackground();
             }
             requestAnimationFrame(gameLoop);
+        }
+
+        // Función para dibujar el fondo de la pantalla de inicio
+        function drawStartScreenBackground() {
+            // Puedes dibujar una imagen de fondo para la pantalla de inicio si lo deseas
+            ctx.drawImage(backgroundSpace, 0, 0, canvas.width, canvas.height);
         }
 
         gameLoop();
