@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>La Aventura Espacial de León - Versión Mejorada</title>
+    <title>La Aventura Espacial de León - Versión Brutal</title>
     <style>
         /* Ajustes generales */
         body {
@@ -32,30 +32,9 @@
             display: none;
             justify-content: center;
             align-items: center;
-            z-index: 2;
         }
 
         #loserText {
-            font-size: 100px;
-            font-weight: bold;
-            color: white;
-        }
-
-        /* Pantalla de Ganador */
-        #winnerScreen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: green;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 2;
-        }
-
-        #winnerText {
             font-size: 100px;
             font-weight: bold;
             color: white;
@@ -68,10 +47,9 @@
             font-size: 48px;
             text-align: center;
             background: rgba(0, 0, 0, 0.8);
-            padding: 40px;
+            padding: 20px;
             border-radius: 10px;
             display: none;
-            z-index: 1;
         }
 
         #score {
@@ -80,7 +58,6 @@
             left: 20px;
             color: white;
             font-size: 24px;
-            z-index: 1;
         }
 
     </style>
@@ -102,19 +79,9 @@
         </div>
     </div>
 
-    <!-- Pantalla de transición -->
-    <div id="transitionScreen" class="overlay">
-        <div id="transitionText" style="font-size: 48px; color: #FFD700;"></div>
-    </div>
-
     <!-- Pantalla roja de "LOSER" -->
     <div id="redScreen">
         <div id="loserText">LOSER</div>
-    </div>
-
-    <!-- Pantalla de "GANASTE" -->
-    <div id="winnerScreen">
-        <div id="winnerText">¡GANASTE!</div>
     </div>
 
     <script>
@@ -129,15 +96,10 @@
 
         const scoreValueDiv = document.getElementById('scoreValue');
         const startScreenDiv = document.getElementById('startScreen');
-        const transitionScreenDiv = document.getElementById('transitionScreen');
-        const transitionTextDiv = document.getElementById('transitionText');
         const redScreen = document.getElementById('redScreen');
-        const winnerScreen = document.getElementById('winnerScreen');
 
-        let gameState = 'start'; // 'start', 'transition', 'playingSpace', 'playingCave', 'gameOver', 'win'
+        let gameState = 'start'; // 'start', 'playingSpace', 'playingCave', 'gameOver'
         let score = 0;
-        let level = 1; // Cada nivel representa 100 puntos
-        let previousMode = 'playingSpace'; // Para manejar transiciones
 
         let bullets = [];
         let enemies = [];
@@ -145,10 +107,10 @@
 
         // Configuración del jugador (León)
         const player = {
-            x: canvas.width / 2 - 15, // Ajustado para la nueva anchura
-            y: canvas.height - 80, // Ajustado para la nueva altura
-            width: 30,
-            height: 30,
+            x: canvas.width / 2,
+            y: canvas.height - 100,
+            width: 50,
+            height: 50,
             speed: 5,
             color: '#FFD700'
         };
@@ -179,12 +141,14 @@
             if (e.key === 'Enter') {
                 if (gameState === 'start') {
                     startGame();
-                } else if (gameState === 'gameOver' || gameState === 'win') {
+                } else if (gameState === 'gameOver') {
                     resetGame();
                 }
             }
-            if ((gameState === 'playingSpace' || gameState === 'playingCave') && e.code === 'Space') {
-                shoot();
+            if (gameState === 'playingSpace' || gameState === 'playingCave') {
+                if (e.code === 'Space') {
+                    shoot();
+                }
             }
         });
 
@@ -210,17 +174,16 @@
         function resetGame() {
             gameState = 'playingSpace';
             redScreen.style.display = 'none';
-            winnerScreen.style.display = 'none';
-            transitionScreenDiv.style.display = 'none';
             score = 0;
-            level = 1;
-            previousMode = 'playingSpace';
             scoreValueDiv.textContent = score;
             enemies = [];
             bullets = [];
             explosionParticles = [];
-            player.x = canvas.width / 2 - player.width / 2;
-            player.y = canvas.height - 80;
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
+            // Resetear fondo a espacio
+            canvas.style.background = "url('background_space.jpg') no-repeat center center";
+            canvas.style.backgroundSize = "cover";
         }
 
         /*******************************************
@@ -252,42 +215,35 @@
 
         // Crear enemigos aleatorios
         function createEnemy() {
-            let enemyType, size, enemy;
             if (gameState === 'playingSpace') {
-                enemyType = enemyTypesSpace[Math.floor(Math.random() * enemyTypesSpace.length)];
-                size = enemyType.type === 'triangle' ? 30 : enemyType.type === 'square' ? 40 : 50;
-                enemy = {
+                const randomType = enemyTypesSpace[Math.floor(Math.random() * enemyTypesSpace.length)];
+                const size = randomType.type === 'triangle' ? 30 : randomType.type === 'square' ? 40 : 50;
+                enemies.push({
                     x: Math.random() * (canvas.width - size),
                     y: -size,
                     size: size,
-                    speed: (Math.random() * 2 + 1) * getSpeedMultiplier(),
-                    type: enemyType.type,
-                    color: enemyType.color,
-                    points: enemyType.points,
+                    speed: Math.random() * 2 + 1,
+                    type: randomType.type,
+                    color: randomType.color,
+                    points: randomType.points,
                     dx: 0,
-                    dy: enemyType.type === 'pixel' ? (Math.random() * 1 + 1) * getSpeedMultiplier() : (Math.random() * 2 + 1) * getSpeedMultiplier()
-                };
+                    dy: Math.random() * 2 + 1
+                });
             } else if (gameState === 'playingCave') {
-                enemyType = enemyTypesCave[Math.floor(Math.random() * enemyTypesCave.length)];
-                size = enemyType.type === 'triangle' ? 30 : enemyType.type === 'square' ? 40 : 50;
-                enemy = {
+                const randomType = enemyTypesCave[Math.floor(Math.random() * enemyTypesCave.length)];
+                const size = randomType.type === 'triangle' ? 30 : randomType.type === 'square' ? 40 : 50;
+                enemies.push({
                     x: -size,
                     y: Math.random() * (canvas.height - size),
                     size: size,
-                    speed: (Math.random() * 2 + 1) * getSpeedMultiplier(),
-                    type: enemyType.type,
-                    color: enemyType.color,
-                    points: enemyType.points,
-                    dx: enemyType.type === 'pixel' ? (Math.random() * 1 + 1) * getSpeedMultiplier() : (Math.random() * 2 + 1) * getSpeedMultiplier(),
+                    speed: Math.random() * 2 + 1,
+                    type: randomType.type,
+                    color: randomType.color,
+                    points: randomType.points,
+                    dx: Math.random() * 2 + 1,
                     dy: 0
-                };
+                });
             }
-            enemies.push(enemy);
-        }
-
-        // Obtener multiplicador de velocidad según el nivel
-        function getSpeedMultiplier() {
-            return 1 + (level - 1) * 0.2;
         }
 
         // Actualizar objetos
@@ -314,64 +270,54 @@
                 return true;
             });
 
-            // Generar enemigos con diferente frecuencia según el modo
+            // Movimiento de enemigos
             if (gameState === 'playingSpace') {
                 if (Math.random() < 0.02) createEnemy();
             } else if (gameState === 'playingCave') {
                 if (Math.random() < 0.03) createEnemy();
             }
 
-            // Movimiento y gestión de enemigos
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
+            enemies = enemies.filter((enemy) => {
                 enemy.x += enemy.dx;
                 enemy.y += enemy.dy;
 
                 // Colisión con el jugador
                 if (checkCollision(enemy, player)) {
                     gameOver();
-                    return;
+                    return false;
                 }
 
                 // Colisión con balas
-                for (let j = bullets.length - 1; j >= 0; j--) {
-                    const bullet = bullets[j];
+                for (const bullet of bullets) {
                     if (checkCollision(enemy, bullet)) {
                         score += enemy.points;
                         scoreValueDiv.textContent = score;
-
                         // Eliminar enemigo y bala
-                        enemies.splice(i, 1);
-                        bullets.splice(j, 1);
-
+                        enemies.splice(enemies.indexOf(enemy), 1);
+                        bullets.splice(bullets.indexOf(bullet), 1);
                         // Verificar si se alcanza el puntaje para cambiar de fase
-                        if (score >= level * 100) {
-                            if (level * 100 < 1000) {
-                                transitionToNextMode();
-                            } else {
-                                winGame();
-                            }
+                        if (score >= 200 && gameState === 'playingSpace') {
+                            enterCaveMode();
                         }
-                        break; // Salir del ciclo de balas
+                        return false;
                     }
                 }
 
                 // Eliminar enemigos que salen de la pantalla
                 if (gameState === 'playingSpace') {
-                    if (enemy.y > canvas.height) {
-                        enemies.splice(i, 1);
-                    }
+                    return enemy.y < canvas.height;
                 } else if (gameState === 'playingCave') {
-                    if (enemy.x > canvas.width) {
-                        enemies.splice(i, 1);
-                    }
+                    return enemy.x < canvas.width;
                 }
-            }
+                return true;
+            });
         }
 
         // Dibujar objetos
         function drawObjects() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Dibujar jugador
             drawPlayer();
@@ -411,19 +357,11 @@
         }
 
         /*******************************************
-         * Dibujar jugador (Nave con forma de león pixelado)
+         * Dibujar jugador
          *******************************************/
         function drawPlayer() {
-            // Dibujar cuerpo
             ctx.fillStyle = player.color;
-            ctx.fillRect(player.x + 5, player.y + 10, player.width - 10, player.height - 10);
-
-            // Dibujar cabeza
-            ctx.fillRect(player.x + 10, player.y, 10, 10);
-
-            // Dibujar melena
-            ctx.fillStyle = '#FFA500';
-            ctx.fillRect(player.x + 7, player.y + 5, 16, 5);
+            ctx.fillRect(player.x, player.y, player.width, player.height);
         }
 
         /*******************************************
@@ -462,42 +400,6 @@
         }
 
         /*******************************************
-         * Ganar el Juego
-         *******************************************/
-        function winGame() {
-            gameState = 'win';
-            winnerScreen.style.display = 'flex';
-        }
-
-        /*******************************************
-         * Transición entre modos
-         *******************************************/
-        function transitionToNextMode() {
-            gameState = 'transition';
-            transitionScreenDiv.style.display = 'flex';
-            // Establecer el texto de transición antes de cambiar el estado
-            const transitioningToCave = previousMode === 'playingSpace';
-            transitionTextDiv.textContent = transitioningToCave ? 'Ingresando a la Caverna...' : 'Volviendo al Espacio...';
-            setTimeout(() => {
-                transitionScreenDiv.style.display = 'none';
-                switchMode();
-            }, 2000); // Duración de la transición (2 segundos)
-        }
-
-        function switchMode() {
-            // Incrementar nivel
-            level += 1;
-
-            if (previousMode === 'playingSpace') {
-                enterCaveMode();
-                previousMode = 'playingCave';
-            } else if (previousMode === 'playingCave') {
-                enterSpaceMode();
-                previousMode = 'playingSpace';
-            }
-        }
-
-        /*******************************************
          * Entrar en modo caverna
          *******************************************/
         function enterCaveMode() {
@@ -505,22 +407,9 @@
             // Cambiar fondo a caverna
             canvas.style.background = "url('background_cave.jpg') no-repeat center center";
             canvas.style.backgroundSize = "cover";
-            // Ajustar posición del jugador si es necesario
-            player.x = 50; // Empezar a la izquierda
+            // Opcional: ajustar posición del jugador si es necesario
+            player.x = 50; // Por ejemplo, empezar en la izquierda
             player.y = canvas.height / 2 - player.height / 2;
-        }
-
-        /*******************************************
-         * Entrar en modo espacio
-         *******************************************/
-        function enterSpaceMode() {
-            gameState = 'playingSpace';
-            // Cambiar fondo a espacio
-            canvas.style.background = "url('background_space.jpg') no-repeat center center";
-            canvas.style.backgroundSize = "cover";
-            // Ajustar posición del jugador si es necesario
-            player.x = canvas.width / 2 - player.width / 2;
-            player.y = canvas.height - 80;
         }
 
         /*******************************************
