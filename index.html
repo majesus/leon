@@ -17,9 +17,6 @@
 
         #gameCanvas {
             border: 2px solid #333;
-            /* Eliminamos el fondo aquí */
-            /* background: url('background_space.jpg') no-repeat center center; */
-            /* background-size: cover; */
         }
 
         /* Pantalla roja para "LOSER" */
@@ -33,6 +30,7 @@
             display: none;
             justify-content: center;
             align-items: center;
+            z-index: 10;
         }
 
         #loserText {
@@ -53,20 +51,7 @@
             justify-content: center;
             align-items: center;
             flex-direction: column;
-        }
-
-        /* Pantalla Final de Éxito */
-        #finalScreen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
+            z-index: 10;
         }
 
         /* Overlays */
@@ -82,6 +67,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            z-index: 5;
         }
 
         #score {
@@ -90,6 +76,7 @@
             left: 20px;
             color: white;
             font-size: 24px;
+            z-index: 5;
         }
 
     </style>
@@ -118,14 +105,8 @@
     </div>
 
     <!-- Pantalla de Ganar -->
-    <div id="winScreen" class="overlay">
+    <div id="winScreen">
         <div style="font-size: 72px; color: #FFD700; margin-bottom: 20px;">¡LEÓN, HAS GANADO!</div>
-        Presiona ENTER para continuar<br>
-    </div>
-
-    <!-- Pantalla Final de Éxito -->
-    <div id="finalScreen" class="overlay">
-        <div style="font-size: 72px; color: #FFD700; margin-bottom: 20px;">¡LEÓN, HAS SALVADO EL UNIVERSO!</div>
         Presiona ENTER para reiniciar<br>
     </div>
 
@@ -152,14 +133,12 @@
         const startScreenDiv = document.getElementById('startScreen');
         const redScreen = document.getElementById('redScreen');
         const winScreen = document.getElementById('winScreen');
-        const finalScreen = document.getElementById('finalScreen');
 
-        let gameState = 'start'; // 'start', 'playingSpace', 'playingCave', 'playingVolcano', 'won', 'finalWin', 'gameOver'
+        let gameState = 'start'; // 'start', 'playingSpace', 'playingCave', 'playingVolcano', 'won', 'gameOver'
         let score = 0;
 
         let bullets = [];
         let enemies = [];
-        let explosionParticles = [];
 
         // Configuración del jugador (León)
         const player = {
@@ -208,11 +187,8 @@
                 } else if (gameState === 'gameOver') {
                     resetGame();
                 } else if (gameState === 'won') {
-                    enterVolcanoMode();
-                    winScreen.style.display = 'none';
-                } else if (gameState === 'finalWin') {
                     resetGame();
-                    finalScreen.style.display = 'none';
+                    winScreen.style.display = 'none';
                 }
             }
             if (gameState === 'playingSpace' || gameState === 'playingCave' || gameState === 'playingVolcano') {
@@ -242,12 +218,10 @@
             gameState = 'playingSpace';
             redScreen.style.display = 'none';
             winScreen.style.display = 'none';
-            finalScreen.style.display = 'none';
             score = 0;
             scoreValueDiv.textContent = score;
             enemies = [];
             bullets = [];
-            explosionParticles = [];
             player.x = canvas.width / 2;
             player.y = canvas.height - 100;
         }
@@ -288,7 +262,6 @@
                     x: Math.random() * (canvas.width - size),
                     y: -size,
                     size: size,
-                    speed: Math.random() * 2 + 1,
                     type: randomType.type,
                     color: randomType.color,
                     points: randomType.points,
@@ -302,7 +275,6 @@
                     x: -size,
                     y: Math.random() * (canvas.height - size),
                     size: size,
-                    speed: Math.random() * 2 + 1,
                     type: randomType.type,
                     color: randomType.color,
                     points: randomType.points,
@@ -316,12 +288,11 @@
                     x: Math.random() * (canvas.width - size),
                     y: -size,
                     size: size,
-                    speed: Math.random() * 3 + 2, // Enemigos más rápidos
                     type: randomType.type,
                     color: randomType.color,
                     points: randomType.points,
                     dx: 0,
-                    dy: Math.random() * 3 + 1 // Mayor velocidad en Y
+                    dy: Math.random() * 3 + 1
                 });
             }
         }
@@ -342,12 +313,10 @@
 
             // Eliminar balas fuera de la pantalla
             bullets = bullets.filter((bullet) => {
-                if (gameState === 'playingSpace') {
+                if (gameState === 'playingSpace' || gameState === 'playingVolcano') {
                     return bullet.y > -bullet.height;
                 } else if (gameState === 'playingCave') {
                     return bullet.x < canvas.width + bullet.width;
-                } else if (gameState === 'playingVolcano') {
-                    return bullet.y > -bullet.height;
                 }
                 return true;
             });
@@ -361,56 +330,53 @@
                 if (Math.random() < 0.04) createEnemy(); // Mayor frecuencia en volcán
             }
 
-            enemies = enemies.filter((enemy) => {
-                enemy.x += enemy.dx;
-                enemy.y += enemy.dy;
+            // Manejar colisiones y eliminar enemigos/balas
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let enemy = enemies[i];
 
                 // Colisión con el jugador
                 if (checkCollision(enemy, player)) {
                     gameOver();
-                    return false;
+                    enemies.splice(i, 1);
+                    continue;
                 }
 
                 // Colisión con balas
-                for (const bullet of bullets) {
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    let bullet = bullets[j];
                     if (checkCollision(enemy, bullet)) {
                         score += enemy.points;
                         scoreValueDiv.textContent = score;
                         // Eliminar enemigo y bala
-                        enemies.splice(enemies.indexOf(enemy), 1);
-                        bullets.splice(bullets.indexOf(bullet), 1);
-                        // Verificar si se alcanza el puntaje para cambiar de fase
-                        if (score >= 200 && gameState === 'playingSpace') {
-                            enterCaveMode();
-                        } else if (score >= 200 && gameState === 'playingCave') {
-                            enterWinScreen();
-                        } else if (score >= 400 && gameState === 'playingVolcano') {
-                            enterFinalScreen();
-                        }
-                        return false;
+                        enemies.splice(i, 1);
+                        bullets.splice(j, 1);
+                        break; // Salir del bucle de balas
                     }
                 }
 
                 // Eliminar enemigos que salen de la pantalla
                 if (gameState === 'playingSpace') {
-                    return enemy.y < canvas.height;
+                    if (enemy.y > canvas.height) {
+                        enemies.splice(i, 1);
+                    }
                 } else if (gameState === 'playingCave') {
-                    return enemy.x < canvas.width;
+                    if (enemy.x > canvas.width) {
+                        enemies.splice(i, 1);
+                    }
                 } else if (gameState === 'playingVolcano') {
-                    return enemy.y < canvas.height;
+                    if (enemy.y > canvas.height) {
+                        enemies.splice(i, 1);
+                    }
                 }
-                return true;
-            });
+            }
 
-            // Verificar umbrales de puntuación fuera de colisiones
+            // Verificar umbrales de puntuación
             if (score >= 200 && gameState === 'playingSpace') {
                 enterCaveMode();
-            } 
-            if (score >= 400 && gameState === 'playingCave') {
+            } else if (score >= 400 && gameState === 'playingCave') {
+                enterVolcanoMode();
+            } else if (score >= 600 && gameState === 'playingVolcano') {
                 enterWinScreen();
-            }
-            if (score >= 600 && gameState === 'playingVolcano') {
-                enterFinalScreen();
             }
         }
 
@@ -511,13 +477,30 @@
         function enterCaveMode() {
             gameState = 'playingCave';
             // Cambiar fondo a caverna
-            // Asegúrate de que la imagen de la caverna esté cargada
             if (backgroundCave.complete) {
-                // Si la imagen ya está cargada
-                // No hacemos nada, el fondo se dibujará en drawObjects()
+                // Si la imagen ya está cargada, se dibuja en drawObjects
             } else {
                 // Si no está cargada, esperar a que se cargue
                 backgroundCave.onload = () => {
+                    drawObjects();
+                };
+            }
+            // Ajustar posición del jugador si es necesario
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
+        }
+
+        /*******************************************
+         * Entrar en modo volcán
+         *******************************************/
+        function enterVolcanoMode() {
+            gameState = 'playingVolcano';
+            // Cambiar fondo a volcán
+            if (backgroundVolcano.complete) {
+                // Si la imagen ya está cargada, se dibuja en drawObjects
+            } else {
+                // Si no está cargada, esperar a que se cargue
+                backgroundVolcano.onload = () => {
                     drawObjects();
                 };
             }
@@ -535,14 +518,6 @@
         }
 
         /*******************************************
-         * Entrar en pantalla final de éxito
-         *******************************************/
-        function enterFinalScreen() {
-            gameState = 'finalWin';
-            finalScreen.style.display = 'flex';
-        }
-
-        /*******************************************
          * Bucle del juego
          *******************************************/
         function gameLoop() {
@@ -551,14 +526,23 @@
                 drawObjects();
             } else if (gameState === 'start') {
                 drawStartScreenBackground();
+            } else if (gameState === 'gameOver') {
+                // No es necesario dibujar nada adicional, ya que el overlay está visible
+            } else if (gameState === 'won') {
+                // No es necesario dibujar nada adicional, ya que el overlay está visible
             }
             requestAnimationFrame(gameLoop);
         }
 
         // Función para dibujar el fondo de la pantalla de inicio
         function drawStartScreenBackground() {
-            // Puedes dibujar una imagen de fondo para la pantalla de inicio si lo deseas
-            ctx.drawImage(backgroundSpace, 0, 0, canvas.width, canvas.height);
+            if (backgroundSpace.complete) {
+                ctx.drawImage(backgroundSpace, 0, 0, canvas.width, canvas.height);
+            } else {
+                backgroundSpace.onload = () => {
+                    ctx.drawImage(backgroundSpace, 0, 0, canvas.width, canvas.height);
+                };
+            }
         }
 
         gameLoop();
