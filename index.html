@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>La Aventura Espacial de León - Versión Especial Navidad</title>
+    <style>
+        /* Ajustes de body y eliminación de scroll */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Canvas con borde para resaltar */
+        #gameCanvas {
+            border: 2px solid #333;
+        }
+
+        /* Estilo para overlays: pantallas de inicio, game over, etc. */
+        .overlay {
+            position: absolute;
+            color: white;
+            font-size: 48px;
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        /* Marcador de puntos */
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+        }
+
+        /* Efecto parpadeante para resaltar el mensaje de iniciar */
+        .blink {
+            animation: blinking 1.2s infinite;
+        }
+        @keyframes blinking {
+            0%   { opacity: 1; }
+            50%  { opacity: 0.2; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Marcador de puntos -->
+    <div id="score">Puntos: <span id="scoreValue">0</span></div>
+    
+    <!-- Lienzo principal para el juego -->
+    <canvas id="gameCanvas"></canvas>
+    
+    <!-- Pantalla de inicio -->
+    <div id="startScreen" class="overlay">
+        <div style="font-size: 72px; color: #FFD700; margin-bottom: 20px;" class="blink">¡LEÓN!</div>
+        Presiona ENTER para comenzar<br>
+        <div style="font-size: 24px; margin-top: 20px;">
+            ↑↓←→ para mover<br>
+            ESPACIO para disparar
+        </div>
+    </div>
+    
+    <!-- Pantalla de Game Over -->
+    <div id="gameOver" class="overlay">
+        ¡Game Over!<br>
+        <span style="font-size: 32px;">¡Bien jugado, León!</span><br>
+        Presiona ENTER para jugar de nuevo
+    </div>
+    
+    <!-- Audio navideño (opcional) -->
+    <!-- Agrega aquí un archivo MP3 si quieres, por ejemplo "navidad.mp3", y descomenta la siguiente línea -->
+    <!-- <audio id="backgroundMusic" src="navidad.mp3" loop></audio> -->
+
+    <script>
+        /****************************************************
+         * Variables y configuración básica
+         ****************************************************/
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameOverDiv = document.getElementById('gameOver');
+        const startScreenDiv = document.getElementById('startScreen');
+        const scoreValueDiv = document.getElementById('scoreValue');
+
+        // Ancho y alto para el lienzo
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // Estado del juego: 'start', 'playing' o 'gameOver'
+        let gameState = 'start';
+        let score = 0;
+
+        // Arrays para disparos, enemigos y partículas de explosión
+        let bullets = [];
+        let enemies = [];
+        let explosionParticles = [];
+
+        // Configuración del jugador (León)
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 100,
+            width: 50,
+            height: 50,
+            speed: 5,
+            color: '#FFD700'
+        };
+
+        // Opcional: Audio de fondo navideño
+        // const backgroundMusic = document.getElementById('backgroundMusic');
+
+        /****************************************************
+         * Pantalla de inicio visible por defecto
+         ****************************************************/
+        startScreenDiv.style.display = 'block';
+
+        /****************************************************
+         * Eventos de teclado
+         ****************************************************/
+        const keys = {};
+        document.addEventListener('keydown', e => {
+            keys[e.code] = true;
+
+            // Iniciar juego con Enter
+            if (e.key === 'Enter') {
+                if (gameState === 'start') {
+                    startGame();
+                } else if (gameState === 'gameOver') {
+                    resetGame();
+                }
+            }
+
+            // Disparar con ESPACIO
+            if (gameState === 'playing' && e.code === 'Space') {
+                shoot();
+            }
+        });
+        document.addEventListener('keyup', e => {
+            keys[e.code] = false;
+        });
+
+        /****************************************************
+         * Función para iniciar el juego
+         ****************************************************/
+        function startGame() {
+            gameState = 'playing';
+            startScreenDiv.style.display = 'none';
+            resetGame();
+            // Opcional: Reproducir música navideña
+            // backgroundMusic.play();
+        }
+
+        /****************************************************
+         * Función para disparar
+         ****************************************************/
+        function shoot() {
+            // Limitamos la cantidad de balas en pantalla
+            if (bullets.length < 5) {
+                bullets.push({
+                    x: player.x + player.width / 2 - 2.5,
+                    y: player.y,
+                    width: 5,
+                    height: 10
+                });
+            }
+        }
+
+        /****************************************************
+         * Función de actualización de variables
+         ****************************************************/
+        function update() {
+            if (gameState !== 'playing') return;
+
+            // Movimiento del jugador
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+            if (keys['ArrowUp'] && player.y > 0) {
+                player.y -= player.speed;
+            }
+            if (keys['ArrowDown'] && player.y < canvas.height - player.height) {
+                player.y += player.speed;
+            }
+
+            // Actualizamos posición de las balas
+            bullets = bullets.filter(bullet => {
+                bullet.y -= 7;
+                return bullet.y > 0;
+            });
+
+            // Generamos nuevos enemigos aleatoriamente
+            if (Math.random() < 0.02) {
+                enemies.push({
+                    x: Math.random() * (canvas.width - 30),
+                    y: 0,
+                    width: 30,
+                    height: 30,
+                    speed: 2
+                });
+            }
+
+            // Movemos enemigos y verificamos colisiones
+            enemies = enemies.filter(enemy => {
+                enemy.y += enemy.speed;
+
+                // Colisión jugador-enemigo => Game Over
+                if (checkCollision(enemy, player)) {
+                    createExplosion(player.x + player.width / 2, player.y + player.height / 2);
+                    gameOver();
+                    return false;
+                }
+
+                // Colisión bala-enemigo => sumar puntos y eliminar enemigo
+                for (let bullet of bullets) {
+                    if (checkCollision(enemy, bullet)) {
+                        createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+                        score += 10;
+                        scoreValueDiv.textContent = score;
+                        // Elimina la bala usada
+                        bullets = bullets.filter(b => b !== bullet);
+                        // Elimina el enemigo
+                        return false;
+                    }
+                }
+
+                // Enemigo sigue en pantalla
+                return enemy.y < canvas.height;
+            });
+
+            // Actualizar partículas de explosión
+            explosionParticles = explosionParticles.filter(particle => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life--;
+                return particle.life > 0;
+            });
+        }
+
+        /****************************************************
+         * Función para dibujar en cada frame
+         ****************************************************/
+        function draw() {
+            // Fondo negro
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Pequeña animación de estrellas en el fondo
+            ctx.fillStyle = 'white';
+            for (let i = 0; i < 100; i++) {
+                /* Estrellas con movimiento sinusoidal:
+                   Creamos un efecto de "parpadeo" al usar Math.sin en el offset */
+                ctx.fillRect(
+                    Math.sin(Date.now() * 0.001 + i) * canvas.width / 2 + canvas.width / 2,
+                    (i * 6 + Date.now() * 0.1) % canvas.height,
+                    2,
+                    2
+                );
+            }
+
+            if (gameState === 'playing') {
+                // Dibujar jugador (León)
+                drawLeon(player.x, player.y);
+
+                // Dibujar balas
+                ctx.fillStyle = '#FF0';
+                bullets.forEach(bullet => {
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                });
+
+                // Dibujar enemigos (forma triangular)
+                ctx.fillStyle = '#F00';
+                enemies.forEach(enemy => {
+                    ctx.beginPath();
+                    ctx.moveTo(enemy.x + enemy.width / 2, enemy.y);
+                    ctx.lineTo(enemy.x, enemy.y + enemy.height);
+                    ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
+                    ctx.closePath();
+                    ctx.fill();
+                });
+            }
+
+            // Dibujar partículas de explosión
+            explosionParticles.forEach(particle => {
+                ctx.fillStyle = `rgba(255, ${Math.random() * 255}, 0, ${particle.life / 50})`;
+                ctx.fillRect(particle.x, particle.y, 3, 3);
+            });
+
+            // Si Game Over y no hay partículas de explosión, dibujamos cara triste
+            if (gameState === 'gameOver' && explosionParticles.length === 0) {
+                drawSadFace(canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        /****************************************************
+         * Funciones auxiliares
+         ****************************************************/
+        // Colisión entre dos rectángulos
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Crear partículas de explosión en (x, y)
+        function createExplosion(x, y) {
+            for (let i = 0; i < 30; i++) {
+                const angle = (Math.PI * 2 / 30) * i;
+                explosionParticles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * 5,
+                    vy: Math.sin(angle) * 5,
+                    life: 50
+                });
+            }
+        }
+
+        // Dibujar a León (jugador) con melena y ojos
+        function drawLeon(x, y) {
+            ctx.save();
+            // Trasladar el punto de referencia al centro del "León"
+            ctx.translate(x + 25, y + 25);
+            
+            // Cuerpo (triángulo dorado)
+            ctx.beginPath();
+            ctx.moveTo(-25, 15);
+            ctx.lineTo(25, 15);
+            ctx.lineTo(0, -25);
+            ctx.closePath();
+            ctx.fillStyle = player.color;
+            ctx.fill();
+
+            // Melena (círculo naranja)
+            ctx.beginPath();
+            ctx.arc(0, 0, 20, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFA500';
+            ctx.fill();
+
+            // Cara (círculo dorado)
+            ctx.beginPath();
+            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFD700';
+            ctx.fill();
+
+            // Ojos
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(-5, -2, 3, 0, Math.PI * 2);
+            ctx.arc(5, -2, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Dibujar cara triste central en caso de Game Over
+        function drawSadFace(x, y) {
+            ctx.beginPath();
+            ctx.arc(x, y, 40, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFD700';
+            ctx.fill();
+            
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(x - 15, y - 10, 5, 0, Math.PI * 2);
+            ctx.arc(x + 15, y - 10, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(x, y + 20, 20, Math.PI, 0, true);
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        // Lógica de Game Over
+        function gameOver() {
+            gameState = 'gameOver';
+            gameOverDiv.style.display = 'block';
+            // Opcional: Detener música
+            // backgroundMusic.pause();
+            // backgroundMusic.currentTime = 0;
+        }
+
+        // Restablecer el juego a cero
+        function resetGame() {
+            gameState = 'playing';
+            gameOverDiv.style.display = 'none';
+            score = 0;
+            scoreValueDiv.textContent = score;
+            enemies = [];
+            bullets = [];
+            explosionParticles = [];
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
+        }
+
+        /****************************************************
+         * Bucle principal de la animación
+         ****************************************************/
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Iniciamos el bucle del juego
+        gameLoop();
+    </script>
+</body>
+</html>
