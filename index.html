@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>La Aventura Espacial de León - Versión Especial Navidad</title>
+    <title>La Aventura Espacial de León - Versión Mega Divertida</title>
     <style>
-        /* Ajustes de body y eliminación de scroll */
+        /* Ajustes generales de la página */
         body {
             margin: 0;
             overflow: hidden;
@@ -15,12 +15,12 @@
             font-family: Arial, sans-serif;
         }
 
-        /* Canvas con borde para resaltar */
+        /* Canvas con borde para resaltar el área de juego */
         #gameCanvas {
             border: 2px solid #333;
         }
 
-        /* Estilo para overlays: pantallas de inicio, game over, etc. */
+        /* Overlays: inicio, final, etc. */
         .overlay {
             position: absolute;
             color: white;
@@ -41,14 +41,48 @@
             font-size: 24px;
         }
 
-        /* Efecto parpadeante para resaltar el mensaje de iniciar */
+        /* Efecto parpadeante */
         .blink {
             animation: blinking 1.2s infinite;
         }
         @keyframes blinking {
-            0%   { opacity: 1; }
+            0%   { opacity: 1;   }
             50%  { opacity: 0.2; }
-            100% { opacity: 1; }
+            100% { opacity: 1;   }
+        }
+
+        /* Superposición para la transición de pantalla negra */
+        #blackOverlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 0; 
+            height: 0;
+            background: black;
+            opacity: 0; 
+            z-index: 5;
+        }
+
+        /* Contenedor para los marcianitos bailando */
+        #dancingAliens {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 800px;
+            height: 600px;
+            pointer-events: none;
+            display: none; /* Se mostrará tras la "muerte" */
+        }
+        .alien {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: green;
+            border-radius: 50%;
+            animation: dance 1s infinite alternate;
+        }
+        @keyframes dance {
+            0%   { transform: translateY(0);   }
+            100% { transform: translateY(-20px); }
         }
     </style>
 </head>
@@ -56,7 +90,7 @@
     <!-- Marcador de puntos -->
     <div id="score">Puntos: <span id="scoreValue">0</span></div>
     
-    <!-- Lienzo principal para el juego -->
+    <!-- Lienzo para el juego -->
     <canvas id="gameCanvas"></canvas>
     
     <!-- Pantalla de inicio -->
@@ -68,37 +102,38 @@
             ESPACIO para disparar
         </div>
     </div>
-    
-    <!-- Pantalla de Game Over -->
-    <div id="gameOver" class="overlay">
-        ¡Game Over!<br>
-        <span style="font-size: 32px;">¡Bien jugado, León!</span><br>
-        Presiona ENTER para jugar de nuevo
+
+    <!-- Pantalla final (ahora será dinámica) -->
+    <div id="gameOver" class="overlay" style="font-size: 60px;">
+        <!-- Se rellena dinámicamente con “¡Loser!” -->
     </div>
-    
-    <!-- Audio navideño (opcional) -->
-    <!-- Agrega aquí un archivo MP3 si quieres, por ejemplo "navidad.mp3", y descomenta la siguiente línea -->
-    <!-- <audio id="backgroundMusic" src="navidad.mp3" loop></audio> -->
+
+    <!-- Superposición negra para la transición de "muerte" -->
+    <div id="blackOverlay"></div>
+
+    <!-- Contenedor para los marcianitos bailando -->
+    <div id="dancingAliens"></div>
 
     <script>
-        /****************************************************
-         * Variables y configuración básica
-         ****************************************************/
+        /********************************************
+         * Variables y configuración
+         ********************************************/
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const gameOverDiv = document.getElementById('gameOver');
-        const startScreenDiv = document.getElementById('startScreen');
-        const scoreValueDiv = document.getElementById('scoreValue');
-
-        // Ancho y alto para el lienzo
+        
         canvas.width = 800;
         canvas.height = 600;
 
-        // Estado del juego: 'start', 'playing' o 'gameOver'
-        let gameState = 'start';
+        // Referencias a los elementos HTML
+        const startScreenDiv = document.getElementById('startScreen');
+        const gameOverDiv = document.getElementById('gameOver');
+        const scoreValueDiv = document.getElementById('scoreValue');
+        const blackOverlay = document.getElementById('blackOverlay');
+        const dancingAliensDiv = document.getElementById('dancingAliens');
+
+        let gameState = 'start'; // 'start', 'playing', 'gameOver', 'dance'
         let score = 0;
 
-        // Arrays para disparos, enemigos y partículas de explosión
         let bullets = [];
         let enemies = [];
         let explosionParticles = [];
@@ -113,22 +148,18 @@
             color: '#FFD700'
         };
 
-        // Opcional: Audio de fondo navideño
-        // const backgroundMusic = document.getElementById('backgroundMusic');
+        // Tipos de enemigos, con distintas características
+        const enemyTypes = [
+            { color: '#F00', width: 30, height: 30, speed: 2,   points: 10 },
+            { color: '#0F0', width: 40, height: 40, speed: 1.5, points: 20 },
+            { color: '#00F', width: 50, height: 50, speed: 1,   points: 30 }
+        ];
 
-        /****************************************************
-         * Pantalla de inicio visible por defecto
-         ****************************************************/
-        startScreenDiv.style.display = 'block';
-
-        /****************************************************
-         * Eventos de teclado
-         ****************************************************/
+        // Control de teclas
         const keys = {};
-        document.addEventListener('keydown', e => {
+        document.addEventListener('keydown', (e) => {
             keys[e.code] = true;
 
-            // Iniciar juego con Enter
             if (e.key === 'Enter') {
                 if (gameState === 'start') {
                     startGame();
@@ -137,31 +168,42 @@
                 }
             }
 
-            // Disparar con ESPACIO
             if (gameState === 'playing' && e.code === 'Space') {
                 shoot();
             }
         });
-        document.addEventListener('keyup', e => {
+        document.addEventListener('keyup', (e) => {
             keys[e.code] = false;
         });
 
-        /****************************************************
-         * Función para iniciar el juego
-         ****************************************************/
+        /********************************************
+         * Funciones principales de juego
+         ********************************************/
         function startGame() {
             gameState = 'playing';
             startScreenDiv.style.display = 'none';
             resetGame();
-            // Opcional: Reproducir música navideña
-            // backgroundMusic.play();
         }
 
-        /****************************************************
-         * Función para disparar
-         ****************************************************/
+        function resetGame() {
+            gameState = 'playing';
+            gameOverDiv.style.display = 'none';
+            blackOverlay.style.width = '0';
+            blackOverlay.style.height = '0';
+            blackOverlay.style.opacity = '0';
+            dancingAliensDiv.style.display = 'none';
+            dancingAliensDiv.innerHTML = ''; // Vaciar bailarines
+            score = 0;
+            scoreValueDiv.textContent = score;
+            enemies = [];
+            bullets = [];
+            explosionParticles = [];
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
+        }
+
         function shoot() {
-            // Limitamos la cantidad de balas en pantalla
+            // Limitamos cuántas balas hay en pantalla
             if (bullets.length < 5) {
                 bullets.push({
                     x: player.x + player.width / 2 - 2.5,
@@ -172,9 +214,6 @@
             }
         }
 
-        /****************************************************
-         * Función de actualización de variables
-         ****************************************************/
         function update() {
             if (gameState !== 'playing') return;
 
@@ -192,47 +231,38 @@
                 player.y += player.speed;
             }
 
-            // Actualizamos posición de las balas
+            // Actualizamos balas
             bullets = bullets.filter(bullet => {
                 bullet.y -= 7;
                 return bullet.y > 0;
             });
 
-            // Generamos nuevos enemigos aleatoriamente
+            // Generamos nuevos enemigos con probabilidad fija
             if (Math.random() < 0.02) {
-                enemies.push({
-                    x: Math.random() * (canvas.width - 30),
-                    y: 0,
-                    width: 30,
-                    height: 30,
-                    speed: 2
-                });
+                createRandomEnemy();
             }
 
             // Movemos enemigos y verificamos colisiones
             enemies = enemies.filter(enemy => {
                 enemy.y += enemy.speed;
 
-                // Colisión jugador-enemigo => Game Over
+                // Colisión jugador-enemigo => disparar secuencia de "muerte"
                 if (checkCollision(enemy, player)) {
                     createExplosion(player.x + player.width / 2, player.y + player.height / 2);
-                    gameOver();
+                    triggerDeathSequence();
                     return false;
                 }
 
-                // Colisión bala-enemigo => sumar puntos y eliminar enemigo
+                // Colisión bala-enemigo => sumar puntos y eliminar
                 for (let bullet of bullets) {
                     if (checkCollision(enemy, bullet)) {
                         createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-                        score += 10;
+                        score += enemy.points;
                         scoreValueDiv.textContent = score;
-                        // Elimina la bala usada
                         bullets = bullets.filter(b => b !== bullet);
-                        // Elimina el enemigo
                         return false;
                     }
                 }
-
                 // Enemigo sigue en pantalla
                 return enemy.y < canvas.height;
             });
@@ -246,19 +276,14 @@
             });
         }
 
-        /****************************************************
-         * Función para dibujar en cada frame
-         ****************************************************/
         function draw() {
             // Fondo negro
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Pequeña animación de estrellas en el fondo
+            // Estrellas animadas
             ctx.fillStyle = 'white';
             for (let i = 0; i < 100; i++) {
-                /* Estrellas con movimiento sinusoidal:
-                   Creamos un efecto de "parpadeo" al usar Math.sin en el offset */
                 ctx.fillRect(
                     Math.sin(Date.now() * 0.001 + i) * canvas.width / 2 + canvas.width / 2,
                     (i * 6 + Date.now() * 0.1) % canvas.height,
@@ -268,7 +293,7 @@
             }
 
             if (gameState === 'playing') {
-                // Dibujar jugador (León)
+                // Dibujar jugador
                 drawLeon(player.x, player.y);
 
                 // Dibujar balas
@@ -277,15 +302,9 @@
                     ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
                 });
 
-                // Dibujar enemigos (forma triangular)
-                ctx.fillStyle = '#F00';
+                // Dibujar enemigos (triángulos de distinto tamaño/color)
                 enemies.forEach(enemy => {
-                    ctx.beginPath();
-                    ctx.moveTo(enemy.x + enemy.width / 2, enemy.y);
-                    ctx.lineTo(enemy.x, enemy.y + enemy.height);
-                    ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
-                    ctx.closePath();
-                    ctx.fill();
+                    drawTriangleEnemy(enemy);
                 });
             }
 
@@ -294,17 +313,26 @@
                 ctx.fillStyle = `rgba(255, ${Math.random() * 255}, 0, ${particle.life / 50})`;
                 ctx.fillRect(particle.x, particle.y, 3, 3);
             });
-
-            // Si Game Over y no hay partículas de explosión, dibujamos cara triste
-            if (gameState === 'gameOver' && explosionParticles.length === 0) {
-                drawSadFace(canvas.width / 2, canvas.height / 2);
-            }
         }
 
-        /****************************************************
+        /********************************************
          * Funciones auxiliares
-         ****************************************************/
-        // Colisión entre dos rectángulos
+         ********************************************/
+        // Crea un enemigo con características aleatorias
+        function createRandomEnemy() {
+            const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+            enemies.push({
+                x: Math.random() * (canvas.width - type.width),
+                y: 0,
+                width: type.width,
+                height: type.height,
+                speed: type.speed,
+                color: type.color,
+                points: type.points
+            });
+        }
+
+        // Verifica colisiones rectangulares
         function checkCollision(rect1, rect2) {
             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
@@ -312,7 +340,7 @@
                    rect1.y + rect1.height > rect2.y;
         }
 
-        // Crear partículas de explosión en (x, y)
+        // Crear partículas de explosión
         function createExplosion(x, y) {
             for (let i = 0; i < 30; i++) {
                 const angle = (Math.PI * 2 / 30) * i;
@@ -326,12 +354,10 @@
             }
         }
 
-        // Dibujar a León (jugador) con melena y ojos
+        // Dibujar jugador (León)
         function drawLeon(x, y) {
             ctx.save();
-            // Trasladar el punto de referencia al centro del "León"
             ctx.translate(x + 25, y + 25);
-            
             // Cuerpo (triángulo dorado)
             ctx.beginPath();
             ctx.moveTo(-25, 15);
@@ -340,82 +366,100 @@
             ctx.closePath();
             ctx.fillStyle = player.color;
             ctx.fill();
-
-            // Melena (círculo naranja)
+            // Melena
             ctx.beginPath();
             ctx.arc(0, 0, 20, 0, Math.PI * 2);
             ctx.fillStyle = '#FFA500';
             ctx.fill();
-
-            // Cara (círculo dorado)
+            // Cara
             ctx.beginPath();
             ctx.arc(0, 0, 15, 0, Math.PI * 2);
             ctx.fillStyle = '#FFD700';
             ctx.fill();
-
             // Ojos
             ctx.fillStyle = 'black';
             ctx.beginPath();
             ctx.arc(-5, -2, 3, 0, Math.PI * 2);
             ctx.arc(5, -2, 3, 0, Math.PI * 2);
             ctx.fill();
-
             ctx.restore();
         }
 
-        // Dibujar cara triste central en caso de Game Over
-        function drawSadFace(x, y) {
+        // Dibujar enemigo en forma de triángulo según su tamaño y color
+        function drawTriangleEnemy(enemy) {
+            ctx.fillStyle = enemy.color;
             ctx.beginPath();
-            ctx.arc(x, y, 40, 0, Math.PI * 2);
-            ctx.fillStyle = '#FFD700';
+            ctx.moveTo(enemy.x + enemy.width / 2, enemy.y);
+            ctx.lineTo(enemy.x, enemy.y + enemy.height);
+            ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
+            ctx.closePath();
             ctx.fill();
-            
-            ctx.fillStyle = 'black';
-            ctx.beginPath();
-            ctx.arc(x - 15, y - 10, 5, 0, Math.PI * 2);
-            ctx.arc(x + 15, y - 10, 5, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.beginPath();
-            ctx.arc(x, y + 20, 20, Math.PI, 0, true);
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 3;
-            ctx.stroke();
         }
 
-        // Lógica de Game Over
-        function gameOver() {
+        // Secuencia de muerte: pantalla negra, marcianitos bailando, “¡Loser!”
+        function triggerDeathSequence() {
             gameState = 'gameOver';
-            gameOverDiv.style.display = 'block';
-            // Opcional: Detener música
-            // backgroundMusic.pause();
-            // backgroundMusic.currentTime = 0;
+            // Expandir overlay negro
+            expandBlackOverlay(() => {
+                // Crear marcianitos bailando
+                createDancingAliens();
+                // Mostrar div con marcianitos
+                dancingAliensDiv.style.display = 'block';
+                // Tras 3 segundos, mostrar “¡Loser!”
+                setTimeout(() => {
+                    dancingAliensDiv.style.display = 'none';
+                    gameOverDiv.textContent = '¡Loser!';
+                    gameOverDiv.style.display = 'block';
+                }, 3000);
+            });
         }
 
-        // Restablecer el juego a cero
-        function resetGame() {
-            gameState = 'playing';
-            gameOverDiv.style.display = 'none';
-            score = 0;
-            scoreValueDiv.textContent = score;
-            enemies = [];
-            bullets = [];
-            explosionParticles = [];
-            player.x = canvas.width / 2;
-            player.y = canvas.height - 100;
+        // Función que expande el overlay negro en toda la pantalla
+        function expandBlackOverlay(callback) {
+            blackOverlay.style.width = canvas.width + 'px';
+            blackOverlay.style.height = canvas.height + 'px';
+            blackOverlay.style.opacity = '1';
+
+            // Pequeño retardo para que se note el “fade”
+            setTimeout(() => {
+                callback();
+            }, 1000);
         }
 
-        /****************************************************
-         * Bucle principal de la animación
-         ****************************************************/
+        // Generar varios marcianitos bailando aleatoriamente
+        function createDancingAliens() {
+            for (let i = 0; i < 10; i++) {
+                const alien = document.createElement('div');
+                alien.classList.add('alien');
+                // Posiciones aleatorias en el contenedor
+                alien.style.top = Math.random() * (600 - 40) + 'px';
+                alien.style.left = Math.random() * (800 - 40) + 'px';
+                // Color aleatorio
+                alien.style.backgroundColor = getRandomColor();
+                dancingAliensDiv.appendChild(alien);
+            }
+        }
+
+        // Generar color aleatorio para los alien
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        /********************************************
+         * Bucle de animación principal
+         ********************************************/
         function gameLoop() {
             update();
             draw();
             requestAnimationFrame(gameLoop);
         }
-
-        // Iniciamos el bucle del juego
         gameLoop();
+
     </script>
 </body>
 </html>
