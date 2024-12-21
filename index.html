@@ -285,14 +285,14 @@
                 enemyType = enemyTypesCave[Math.floor(Math.random() * enemyTypesCave.length)];
                 size = enemyType.type === 'triangle' ? 30 : enemyType.type === 'square' ? 40 : enemyType.type === 'circle' ? 30 : 25;
                 enemy = {
-                    x: canvas.width + size, // Inicialmente fuera del lado derecho
+                    x: -size, // Diferencia clave
                     y: Math.random() * (canvas.height - size),
                     width: size,
                     height: size,
                     type: enemyType.type,
                     color: enemyType.color,
                     points: enemyType.points,
-                    dx: -(Math.random() * 2 + 1), // Velocidad negativa para mover hacia la izquierda
+                    dx: Math.random() * 2 + 1, // Ahora se mueven hacia la derecha
                     dy: 0
                 };
             } else if (gameState === 'playingVolcano') {
@@ -387,7 +387,7 @@
                         console.log(`Enemigo salió de la pantalla: Tipo=${enemy.type}`);
                     }
                 } else if (gameState === 'playingCave') {
-                    if (enemy.x < 0 - enemy.width) {
+                    if (enemy.x > canvas.width) {
                         enemies.splice(i, 1);
                         console.log(`Enemigo salió de la pantalla: Tipo=${enemy.type}`);
                     }
@@ -468,10 +468,10 @@
                         ctx.lineTo(enemy.x, enemy.y + enemy.height);
                         ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
                     } else if (gameState === 'playingCave') {
-                        // Triángulo apuntando hacia la izquierda
-                        ctx.moveTo(enemy.x + enemy.width, enemy.y + enemy.height / 2);
-                        ctx.lineTo(enemy.x, enemy.y);
-                        ctx.lineTo(enemy.x, enemy.y + enemy.height);
+                        // Triángulo apuntando hacia la derecha
+                        ctx.moveTo(enemy.x, enemy.y + enemy.height / 2);
+                        ctx.lineTo(enemy.x + enemy.width, enemy.y);
+                        ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
                     }
                     ctx.closePath();
                     ctx.fill();
