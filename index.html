@@ -296,7 +296,7 @@
                         enemies.splice(enemies.indexOf(enemy), 1);
                         bullets.splice(bullets.indexOf(bullet), 1);
                         // Verificar si se alcanza el puntaje para cambiar de fase
-                        if (score >= 200 && gameState === 'playingSpace') {
+                        if (score >= 500 && gameState === 'playingSpace') {
                             enterCaveMode();
                         }
                         return false;
