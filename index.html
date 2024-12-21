@@ -140,12 +140,21 @@
         let bullets = [];
         let enemies = [];
 
+        let backgroundTransition = {
+            active: false,
+            from: null,
+            to: null,
+            alpha: 0,
+            duration: 500, // Duración de la transición en milisegundos
+            startTime: 0
+        };
+
         // Configuración del jugador (León)
         const player = {
-            x: canvas.width / 2 - 15, // Centramos la nave considerando su ancho
+            x: canvas.width / 2 - 15,
             y: canvas.height - 80,
-            width: 30, // Reducido de 50 a 30
-            height: 30, // Reducido de 50 a 30
+            width: 30,
+            height: 30,
             speed: 5,
             color: '#FFD700'
         };
@@ -276,14 +285,14 @@
                 enemyType = enemyTypesCave[Math.floor(Math.random() * enemyTypesCave.length)];
                 size = enemyType.type === 'triangle' ? 30 : enemyType.type === 'square' ? 40 : enemyType.type === 'circle' ? 30 : 25;
                 enemy = {
-                    x: -size,
+                    x: canvas.width + size, // Inicialmente fuera del lado derecho
                     y: Math.random() * (canvas.height - size),
                     width: size,
                     height: size,
                     type: enemyType.type,
                     color: enemyType.color,
                     points: enemyType.points,
-                    dx: Math.random() * 2 + 1,
+                    dx: -(Math.random() * 2 + 1), // Velocidad negativa para mover hacia la izquierda
                     dy: 0
                 };
             } else if (gameState === 'playingVolcano') {
@@ -302,7 +311,6 @@
                 };
             }
             enemies.push(enemy);
-            // Depuración: Verificar la creación de enemigos
             console.log(`Creado enemigo: Tipo=${enemy.type}, Pos=(${enemy.x.toFixed(2)}, ${enemy.y.toFixed(2)}), Tamaño=${size}`);
         }
 
@@ -330,7 +338,14 @@
                 return true;
             });
 
-            // Movimiento de enemigos y creación de nuevos enemigos
+            // Movimiento de enemigos
+            enemies.forEach((enemy) => {
+                enemy.x += enemy.dx;
+                enemy.y += enemy.dy;
+                console.log(`Enemigo en movimiento: Tipo=${enemy.type}, Pos=(${enemy.x.toFixed(2)}, ${enemy.y.toFixed(2)})`);
+            });
+
+            // Creación de nuevos enemigos
             if (gameState === 'playingSpace') {
                 if (Math.random() < 0.02) createEnemy();
             } else if (gameState === 'playingCave') {
@@ -360,7 +375,6 @@
                         // Eliminar enemigo y bala
                         enemies.splice(i, 1);
                         bullets.splice(j, 1);
-                        // Depuración: Mostrar puntuación actual
                         console.log(`Enemigo destruido: Tipo=${enemy.type}, Puntos Ganados=${enemy.points}, Puntuación Total=${score}`);
                         break; // Salir del bucle de balas
                     }
@@ -370,11 +384,10 @@
                 if (gameState === 'playingSpace') {
                     if (enemy.y > canvas.height) {
                         enemies.splice(i, 1);
-                        // Depuración: Enemigo salió de la pantalla
                         console.log(`Enemigo salió de la pantalla: Tipo=${enemy.type}`);
                     }
                 } else if (gameState === 'playingCave') {
-                    if (enemy.x > canvas.width) {
+                    if (enemy.x < 0 - enemy.width) {
                         enemies.splice(i, 1);
                         console.log(`Enemigo salió de la pantalla: Tipo=${enemy.type}`);
                     }
@@ -398,18 +411,40 @@
 
         // Dibujar objetos
         function drawObjects() {
-            // Dibujar el fondo según el estado del juego
-            if (gameState === 'playingSpace') {
-                if (backgroundSpace.complete) {
-                    ctx.drawImage(backgroundSpace, 0, 0, canvas.width, canvas.height);
+            if (backgroundTransition.active) {
+                let now = Date.now();
+                let elapsed = now - backgroundTransition.startTime;
+                backgroundTransition.alpha = Math.min(1, elapsed / backgroundTransition.duration);
+
+                if (backgroundTransition.from && backgroundTransition.from.complete) {
+                    ctx.globalAlpha = 1 - backgroundTransition.alpha;
+                    ctx.drawImage(backgroundTransition.from, 0, 0, canvas.width, canvas.height);
                 }
-            } else if (gameState === 'playingCave') {
-                if (backgroundCave.complete) {
-                    ctx.drawImage(backgroundCave, 0, 0, canvas.width, canvas.height);
+
+                if (backgroundTransition.to && backgroundTransition.to.complete) {
+                    ctx.globalAlpha = backgroundTransition.alpha;
+                    ctx.drawImage(backgroundTransition.to, 0, 0, canvas.width, canvas.height);
                 }
-            } else if (gameState === 'playingVolcano') {
-                if (backgroundVolcano.complete) {
-                    ctx.drawImage(backgroundVolcano, 0, 0, canvas.width, canvas.height);
+
+                ctx.globalAlpha = 1;
+
+                if (backgroundTransition.alpha >= 1) {
+                    backgroundTransition.active = false;
+                }
+            } else {
+                // Dibujar el fondo según el estado del juego
+                if (gameState === 'playingSpace') {
+                    if (backgroundSpace.complete) {
+                        ctx.drawImage(backgroundSpace, 0, 0, canvas.width, canvas.height);
+                    }
+                } else if (gameState === 'playingCave') {
+                    if (backgroundCave.complete) {
+                        ctx.drawImage(backgroundCave, 0, 0, canvas.width, canvas.height);
+                    }
+                } else if (gameState === 'playingVolcano') {
+                    if (backgroundVolcano.complete) {
+                        ctx.drawImage(backgroundVolcano, 0, 0, canvas.width, canvas.height);
+                    }
                 }
             }
 
@@ -433,10 +468,10 @@
                         ctx.lineTo(enemy.x, enemy.y + enemy.height);
                         ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
                     } else if (gameState === 'playingCave') {
-                        // Triángulo apuntando hacia la derecha
-                        ctx.moveTo(enemy.x, enemy.y + enemy.height / 2);
-                        ctx.lineTo(enemy.x + enemy.width, enemy.y);
-                        ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
+                        // Triángulo apuntando hacia la izquierda
+                        ctx.moveTo(enemy.x + enemy.width, enemy.y + enemy.height / 2);
+                        ctx.lineTo(enemy.x, enemy.y);
+                        ctx.lineTo(enemy.x, enemy.y + enemy.height);
                     }
                     ctx.closePath();
                     ctx.fill();
@@ -450,8 +485,7 @@
                     drawPixelEnemy(enemy);
                 }
 
-                // Depuración: Verificar que el enemigo se está dibujando
-                // console.log(`Dibujando enemigo: Tipo=${enemy.type}, Pos=(${enemy.x.toFixed(2)}, ${enemy.y.toFixed(2)})`);
+                console.log(`Dibujando enemigo: Tipo=${enemy.type}, Pos=(${enemy.x.toFixed(2)}, ${enemy.y.toFixed(2)})`);
             });
         }
 
@@ -500,21 +534,23 @@
         }
 
         /*******************************************
+         * Transiciones de fondo
+         *******************************************/
+        function startBackgroundTransition(from, to) {
+            backgroundTransition.active = true;
+            backgroundTransition.from = from;
+            backgroundTransition.to = to;
+            backgroundTransition.alpha = 0;
+            backgroundTransition.startTime = Date.now();
+        }
+
+        /*******************************************
          * Entrar en modo caverna
          *******************************************/
         function enterCaveMode() {
             gameState = 'playingCave';
-            // Cambiar fondo a caverna
-            if (backgroundCave.complete) {
-                // La imagen ya está cargada y se dibuja en drawObjects
-                console.log('Transición a Caverna');
-            } else {
-                // Esperar a que se cargue la imagen
-                backgroundCave.onload = () => {
-                    console.log('Imagen de caverna cargada');
-                };
-            }
-            // Ajustar posición del jugador si es necesario
+            startBackgroundTransition(backgroundSpace, backgroundCave);
+            console.log('Transición a Caverna');
             player.x = canvas.width / 2 - player.width / 2;
             player.y = canvas.height - 80;
         }
@@ -524,17 +560,8 @@
          *******************************************/
         function enterVolcanoMode() {
             gameState = 'playingVolcano';
-            // Cambiar fondo a volcán
-            if (backgroundVolcano.complete) {
-                // La imagen ya está cargada y se dibuja en drawObjects
-                console.log('Transición a Volcán');
-            } else {
-                // Esperar a que se cargue la imagen
-                backgroundVolcano.onload = () => {
-                    console.log('Imagen de volcán cargada');
-                };
-            }
-            // Ajustar posición del jugador si es necesario
+            startBackgroundTransition(backgroundCave, backgroundVolcano);
+            console.log('Transición a Volcán');
             player.x = canvas.width / 2 - player.width / 2;
             player.y = canvas.height - 80;
         }
