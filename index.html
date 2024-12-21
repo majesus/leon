@@ -298,23 +298,40 @@
             } else if (gameState === 'playingVolcano') {
                 enemyType = enemyTypesVolcano[Math.floor(Math.random() * enemyTypesVolcano.length)];
                 size = enemyType.type === 'triangle' ? 35 : enemyType.type === 'square' ? 45 : enemyType.type === 'circle' ? 40 : 30;
-                
-                // *** Cambio para que aparezcan por detrás del jugador ***
-                enemy = {
-                    x: Math.random() * (canvas.width - size),
-                    y: canvas.height + size, // Aparecen por debajo del canvas
-                    width: size,
-                    height: size,
-                    type: enemyType.type,
-                    color: enemyType.color,
-                    points: enemyType.points,
-                    dx: 0,
-                    dy: -(Math.random() * 3 + 1), // Se mueven hacia arriba
-                    start: 'back'
-                };
+
+                // *** Modificación para tener enemigos por delante y por detrás en el volcán ***
+                if (Math.random() < 0.5) {
+                    // Enemigo que viene por delante (como en la cueva)
+                    enemy = {
+                        x: -size,
+                        y: Math.random() * (canvas.height - size),
+                        width: size,
+                        height: size,
+                        type: enemyType.type,
+                        color: enemyType.color,
+                        points: enemyType.points,
+                        dx: Math.random() * 0.5 + 0.5, // Más lentos: Velocidad entre 0.5 y 1
+                        dy: 0,
+                        start: 'front' // Indicador para saber de dónde viene
+                    };
+                } else {
+                    // Enemigo que viene por detrás
+                    enemy = {
+                        x: Math.random() * (canvas.width - size),
+                        y: canvas.height + size, // Aparecen por debajo del canvas
+                        width: size,
+                        height: size,
+                        type: enemyType.type,
+                        color: enemyType.color,
+                        points: enemyType.points,
+                        dx: 0,
+                        dy: -(Math.random() * 0.5 + 0.5), // Más lentos: Velocidad entre -0.5 y -1 (negativo para que suban)
+                        start: 'back' // Indicador para saber de dónde viene
+                    };
+                }
             }
             enemies.push(enemy);
-            console.log(`Creado enemigo: Tipo=${enemy.type}, Pos=(${enemy.x.toFixed(2)}, ${enemy.y.toFixed(2)}), Tamaño=${size}`);
+            console.log(`Creado enemigo: Tipo=${enemy.type}, Pos=(${enemy.x.toFixed(2)}, ${enemy.y.toFixed(2)}), Tamaño=${size}, Velocidad=(${enemy.dx.toFixed(2)}, ${enemy.dy.toFixed(2)})`);
         }
 
         // Actualizar objetos
@@ -345,7 +362,7 @@
             enemies.forEach((enemy) => {
                 enemy.x += enemy.dx;
                 enemy.y += enemy.dy;
-                console.log(`Enemigo en movimiento: Tipo=${enemy.type}, Pos=(${enemy.x.toFixed(2)}, ${enemy.y.toFixed(2)})`);
+                // console.log(`Enemigo en movimiento: Tipo=${enemy.type}, Pos=(${enemy.x.toFixed(2)}, ${enemy.y.toFixed(2)})`);
             });
 
             // Creación de nuevos enemigos
@@ -395,9 +412,9 @@
                         console.log(`Enemigo salió de la pantalla: Tipo=${enemy.type}`);
                     }
                 } else if (gameState === 'playingVolcano') {
-                    if (enemy.y < 0 - enemy.height && enemy.start == 'back') { // Si ha salido de la pantalla
+                    if (enemy.y < 0 - enemy.height && enemy.start === 'back' || enemy.x > canvas.width && enemy.start === 'front') {
                         enemies.splice(i, 1);
-                        console.log(`Enemigo salió de la pantalla por la parte superior: Tipo=${enemy.type}`);
+                        console.log(`Enemigo salió de la pantalla: Tipo=${enemy.type}`);
                     }
                 }
             }
@@ -465,12 +482,22 @@
                 ctx.fillStyle = enemy.color;
                 if (enemy.type === 'triangle') {
                     ctx.beginPath();
-                    if (gameState === 'playingSpace' || gameState === 'playingVolcano') {
-                        // Triángulo apuntando hacia abajo (o arriba si es del volcán y viene de atrás)
+                    if (gameState === 'playingSpace') {
+                       // Triángulo apuntando hacia abajo
                         ctx.moveTo(enemy.x + enemy.width / 2, enemy.y);
                         ctx.lineTo(enemy.x, enemy.y + enemy.height);
                         ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
                     } else if (gameState === 'playingCave') {
+                        // Triángulo apuntando hacia la derecha
+                        ctx.moveTo(enemy.x, enemy.y + enemy.height / 2);
+                        ctx.lineTo(enemy.x + enemy.width, enemy.y);
+                        ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
+                    } else if (gameState === 'playingVolcano' && enemy.start === 'back') {
+                         // Triángulo apuntando hacia arriba
+                        ctx.moveTo(enemy.x + enemy.width / 2, enemy.y + enemy.height);
+                        ctx.lineTo(enemy.x, enemy.y);
+                        ctx.lineTo(enemy.x + enemy.width, enemy.y);
+                    } else if(gameState === 'playingVolcano' && enemy.start === 'front'){
                         // Triángulo apuntando hacia la derecha
                         ctx.moveTo(enemy.x, enemy.y + enemy.height / 2);
                         ctx.lineTo(enemy.x + enemy.width, enemy.y);
