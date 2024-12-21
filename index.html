@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>La Aventura Espacial de León - Versión Mejorada</title>
+    <title>La Aventura Espacial de León - Versión Brutal</title>
     <style>
         /* Ajustes generales */
         body {
@@ -58,30 +58,6 @@
             font-size: 24px;
         }
 
-        /* Pantalla de avance al siguiente nivel */
-        #nextLevelScreen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            color: #FFD700;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }
-
-        #nextLevelText {
-            font-size: 50px;
-            margin-bottom: 20px;
-        }
-
-        #tunnelCanvas {
-            border: 2px solid #333;
-        }
-
     </style>
 </head>
 <body>
@@ -106,12 +82,6 @@
         <div id="loserText">LOSER</div>
     </div>
 
-    <!-- Pantalla de avance al siguiente nivel -->
-    <div id="nextLevelScreen">
-        <div id="nextLevelText">¡Nivel completado!</div>
-        Presiona ENTER para avanzar al siguiente nivel
-    </div>
-
     <script>
         /*******************************************
          * Variables y configuración inicial
@@ -125,7 +95,6 @@
         const scoreValueDiv = document.getElementById('scoreValue');
         const startScreenDiv = document.getElementById('startScreen');
         const redScreen = document.getElementById('redScreen');
-        const nextLevelScreen = document.getElementById('nextLevelScreen');
 
         let gameState = 'start';
         let score = 0;
@@ -164,8 +133,6 @@
                     startGame();
                 } else if (gameState === 'gameOver') {
                     resetGame();
-                } else if (gameState === 'nextLevel') {
-                    startNextLevel();
                 }
             }
             if (gameState === 'playing' && e.code === 'Space') {
@@ -199,76 +166,6 @@
             explosionParticles = [];
             player.x = canvas.width / 2;
             player.y = canvas.height - 100;
-        }
-
-        /*******************************************
-         * Avance al siguiente nivel
-         *******************************************/
-        function startNextLevel() {
-            // Cambiar a la siguiente fase del juego (túnel)
-            nextLevelScreen.style.display = 'none';
-            initTunnelLevel();
-        }
-
-        /*******************************************
-         * Nivel del túnel
-         *******************************************/
-        function initTunnelLevel() {
-            gameState = 'tunnel';
-            const tunnelCanvas = document.createElement('canvas');
-            tunnelCanvas.id = 'tunnelCanvas';
-            tunnelCanvas.width = canvas.width;
-            tunnelCanvas.height = canvas.height;
-            document.body.appendChild(tunnelCanvas);
-
-            const tunnelCtx = tunnelCanvas.getContext('2d');
-            const tunnelPlayer = { x: canvas.width / 2, y: canvas.height - 50, width: 50, height: 50, speed: 5 };
-            const tunnelEnemies = [];
-            let tunnelScore = score;
-
-            function drawTunnelPlayer() {
-                tunnelCtx.fillStyle = '#FFD700';
-                tunnelCtx.fillRect(tunnelPlayer.x, tunnelPlayer.y, tunnelPlayer.width, tunnelPlayer.height);
-            }
-
-            function updateTunnelObjects() {
-                if (keys['ArrowLeft'] && tunnelPlayer.x > 0) tunnelPlayer.x -= tunnelPlayer.speed;
-                if (keys['ArrowRight'] && tunnelPlayer.x < tunnelCanvas.width - tunnelPlayer.width) tunnelPlayer.x += tunnelPlayer.speed;
-
-                // Generar enemigos en el túnel
-                if (Math.random() < 0.02) {
-                    tunnelEnemies.push({ x: Math.random() * tunnelCanvas.width, y: 0, width: 30, height: 30, speed: 3 });
-                }
-
-                tunnelEnemies.forEach((enemy, index) => {
-                    enemy.y += enemy.speed;
-                    if (enemy.y > tunnelCanvas.height) {
-                        tunnelEnemies.splice(index, 1);
-                    }
-                });
-            }
-
-            function drawTunnelEnemies() {
-                tunnelCtx.fillStyle = 'red';
-                tunnelEnemies.forEach((enemy) => {
-                    tunnelCtx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-                });
-            }
-
-            function gameLoopTunnel() {
-                if (gameState === 'tunnel') {
-                    tunnelCtx.clearRect(0, 0, tunnelCanvas.width, tunnelCanvas.height);
-                    tunnelCtx.fillStyle = 'black';
-                    tunnelCtx.fillRect(0, 0, tunnelCanvas.width, tunnelCanvas.height);
-
-                    drawTunnelPlayer();
-                    updateTunnelObjects();
-                    drawTunnelEnemies();
-                }
-                requestAnimationFrame(gameLoopTunnel);
-            }
-
-            gameLoopTunnel();
         }
 
         /*******************************************
@@ -331,10 +228,6 @@
                         score += enemy.points;
                         scoreValueDiv.textContent = score;
                         bullets.splice(bullets.indexOf(bullet), 1);
-                        if (score >= 100) {
-                            gameState = 'nextLevel';
-                            nextLevelScreen.style.display = 'flex';
-                        }
                         return false;
                     }
                 }
@@ -386,11 +279,6 @@
         function drawPlayer() {
             ctx.fillStyle = player.color;
             ctx.fillRect(player.x, player.y, player.width, player.height);
-
-            // Dibujar el nombre de León
-            ctx.fillStyle = '#FFD700';
-            ctx.font = '16px Arial';
-            ctx.fillText('LEÓN', player.x + player.width / 4, player.y + player.height / 1.5);
         }
 
         /*******************************************
