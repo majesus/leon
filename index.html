@@ -110,7 +110,7 @@
 
         let gameState = 'start'; // 'start', 'transition', 'playingSpace', 'playingCave', 'gameOver'
         let score = 0;
-        let level = 1; // Cada nivel representa 100 puntos
+        let level = 1; // Cada nivel representa 200 puntos
 
         let bullets = [];
         let enemies = [];
@@ -314,8 +314,8 @@
                         enemies.splice(enemies.indexOf(enemy), 1);
                         bullets.splice(bullets.indexOf(bullet), 1);
                         // Verificar si se alcanza el puntaje para cambiar de fase
-                        if (score >= level * 100) {
-                            if (level * 100 < 1000) {
+                        if (score >= level * 200) {
+                            if (level * 200 < 1000) {
                                 transitionToNextMode();
                             }
                         }
