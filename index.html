@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>La Aventura Espacial de León - Versión Revisada</title>
+    <title>La Aventura Espacial de León - Versión Brutal</title>
     <style>
-        /* Ajustes generales de la página */
+        /* Ajustes generales */
         body {
             margin: 0;
             overflow: hidden;
@@ -15,24 +15,41 @@
             font-family: Arial, sans-serif;
         }
 
-        /* Canvas con borde para resaltar el área de juego */
         #gameCanvas {
             border: 2px solid #333;
         }
 
-        /* Overlays: inicio, game over, etc. */
+        /* Pantalla roja para "LOSER" */
+        #redScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: red;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #loserText {
+            font-size: 100px;
+            font-weight: bold;
+            color: white;
+        }
+
+        /* Overlays */
         .overlay {
             position: absolute;
             color: white;
             font-size: 48px;
             text-align: center;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.8);
             padding: 20px;
             border-radius: 10px;
             display: none;
         }
 
-        /* Marcador de puntos */
         #score {
             position: absolute;
             top: 20px;
@@ -41,72 +58,45 @@
             font-size: 24px;
         }
 
-        /* Efecto parpadeante */
-        .blink {
-            animation: blinking 1.2s infinite;
-        }
-        @keyframes blinking {
-            0%   { opacity: 1; }
-            50%  { opacity: 0.2; }
-            100% { opacity: 1; }
-        }
-
-        /* Pantalla Roja para "LOSER" */
-        #redScreen {
-            position: absolute;
-            top: 0; left: 0;
-            width: 800px;
-            height: 600px;
-            background: red;
-            display: none; /* Se activará tras la colisión */
-            justify-content: center;
-            align-items: center;
-        }
-        #loserText {
-            font-size: 100px;
-            font-weight: bold;
-            color: white;
-        }
     </style>
 </head>
 <body>
-    <!-- Marcador de puntos -->
+    <!-- Puntuación -->
     <div id="score">Puntos: <span id="scoreValue">0</span></div>
-    
-    <!-- Lienzo para el juego -->
+
+    <!-- Lienzo del juego -->
     <canvas id="gameCanvas"></canvas>
-    
+
     <!-- Pantalla de inicio -->
     <div id="startScreen" class="overlay">
-        <div style="font-size: 72px; color: #FFD700; margin-bottom: 20px;" class="blink">¡LEÓN!</div>
+        <div style="font-size: 72px; color: #FFD700; margin-bottom: 20px;">LEÓN</div>
         Presiona ENTER para comenzar<br>
         <div style="font-size: 24px; margin-top: 20px;">
-            ↑↓←→ para mover<br>
+            Flechas para mover<br>
             ESPACIO para disparar
         </div>
     </div>
 
-    <!-- Pantalla roja final -->
+    <!-- Pantalla roja de "LOSER" -->
     <div id="redScreen">
         <div id="loserText">LOSER</div>
     </div>
 
     <script>
-        /********************************************
-         * Variables y configuración
-         ********************************************/
+        /*******************************************
+         * Variables y configuración inicial
+         *******************************************/
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        
+
         canvas.width = 800;
         canvas.height = 600;
 
-        // Referencias a los elementos HTML
-        const startScreenDiv = document.getElementById('startScreen');
         const scoreValueDiv = document.getElementById('scoreValue');
+        const startScreenDiv = document.getElementById('startScreen');
         const redScreen = document.getElementById('redScreen');
 
-        let gameState = 'start'; // 'start', 'playing', 'gameOver'
+        let gameState = 'start';
         let score = 0;
 
         let bullets = [];
@@ -123,18 +113,21 @@
             color: '#FFD700'
         };
 
-        // Tipos de enemigos con características distintas
+        // Tipos de enemigos
         const enemyTypes = [
-            { color: '#F00', width: 30, height: 30, speed: 2,   points: 10 },
-            { color: '#0F0', width: 40, height: 40, speed: 1.5, points: 20 },
-            { color: '#00F', width: 50, height: 50, speed: 1,   points: 30 }
+            { type: 'triangle', color: '#F00', points: 10 },
+            { type: 'square', color: '#0F0', points: 20 },
+            { type: 'circle', color: '#00F', points: 30 },
+            { type: 'pixel', color: '#FF0', points: 50 }
         ];
 
-        // Control de teclas
         const keys = {};
+
+        /*******************************************
+         * Eventos de teclado
+         *******************************************/
         document.addEventListener('keydown', (e) => {
             keys[e.code] = true;
-
             if (e.key === 'Enter') {
                 if (gameState === 'start') {
                     startGame();
@@ -142,27 +135,30 @@
                     resetGame();
                 }
             }
-
             if (gameState === 'playing' && e.code === 'Space') {
                 shoot();
             }
         });
+
         document.addEventListener('keyup', (e) => {
             keys[e.code] = false;
         });
 
-        /********************************************
-         * Funciones principales de juego
-         ********************************************/
+        /*******************************************
+         * Inicio del juego
+         *******************************************/
         function startGame() {
             gameState = 'playing';
             startScreenDiv.style.display = 'none';
             resetGame();
         }
 
+        /*******************************************
+         * Reinicio del juego
+         *******************************************/
         function resetGame() {
             gameState = 'playing';
-            redScreen.style.display = 'none'; // Ocultamos la pantalla roja
+            redScreen.style.display = 'none';
             score = 0;
             scoreValueDiv.textContent = score;
             enemies = [];
@@ -172,213 +168,165 @@
             player.y = canvas.height - 100;
         }
 
+        /*******************************************
+         * Funciones principales
+         *******************************************/
+
+        // Disparar
         function shoot() {
-            // Limitamos cuántas balas hay en pantalla
-            if (bullets.length < 5) {
-                bullets.push({
-                    x: player.x + player.width / 2 - 2.5,
-                    y: player.y,
-                    width: 5,
-                    height: 10
-                });
-            }
+            bullets.push({
+                x: player.x + player.width / 2 - 2.5,
+                y: player.y,
+                width: 5,
+                height: 10
+            });
         }
 
-        function update() {
-            if (gameState !== 'playing') return;
+        // Crear enemigos aleatorios
+        function createEnemy() {
+            const randomType = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+            const size = randomType.type === 'triangle' ? 30 : randomType.type === 'square' ? 40 : 50;
+            enemies.push({
+                x: Math.random() * (canvas.width - size),
+                y: 0,
+                size: size,
+                speed: Math.random() * 2 + 1,
+                type: randomType.type,
+                color: randomType.color,
+                points: randomType.points
+            });
+        }
 
+        // Actualizar objetos
+        function updateObjects() {
             // Movimiento del jugador
-            if (keys['ArrowLeft'] && player.x > 0) {
-                player.x -= player.speed;
-            }
-            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
-                player.x += player.speed;
-            }
-            if (keys['ArrowUp'] && player.y > 0) {
-                player.y -= player.speed;
-            }
-            if (keys['ArrowDown'] && player.y < canvas.height - player.height) {
-                player.y += player.speed;
-            }
+            if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) player.x += player.speed;
+            if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
+            if (keys['ArrowDown'] && player.y < canvas.height - player.height) player.y += player.speed;
 
-            // Actualizamos balas
-            bullets = bullets.filter(bullet => {
+            // Movimiento de balas
+            bullets = bullets.filter((bullet) => {
                 bullet.y -= 7;
                 return bullet.y > 0;
             });
 
-            // Generamos nuevos enemigos con probabilidad fija
-            if (Math.random() < 0.02) {
-                createRandomEnemy();
-            }
-
-            // Movemos enemigos y verificamos colisiones
-            enemies = enemies.filter(enemy => {
+            // Movimiento de enemigos
+            if (Math.random() < 0.02) createEnemy();
+            enemies = enemies.filter((enemy) => {
                 enemy.y += enemy.speed;
 
-                // Colisión jugador-enemigo => secuencia de muerte inmediata
+                // Colisión con el jugador
                 if (checkCollision(enemy, player)) {
-                    createExplosion(player.x + player.width / 2, player.y + player.height / 2);
-                    gameOverImmediate();
+                    gameOver();
                     return false;
                 }
 
-                // Colisión bala-enemigo => sumar puntos y eliminar
-                for (let bullet of bullets) {
+                // Colisión con balas
+                for (const bullet of bullets) {
                     if (checkCollision(enemy, bullet)) {
-                        createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
                         score += enemy.points;
                         scoreValueDiv.textContent = score;
-                        bullets = bullets.filter(b => b !== bullet);
+                        bullets.splice(bullets.indexOf(bullet), 1);
                         return false;
                     }
                 }
 
                 return enemy.y < canvas.height;
             });
-
-            // Actualizar partículas de explosión
-            explosionParticles = explosionParticles.filter(particle => {
-                particle.x += particle.vx;
-                particle.y += particle.vy;
-                particle.life--;
-                return particle.life > 0;
-            });
         }
 
-        function draw() {
-            // Fondo negro
+        // Dibujar objetos
+        function drawObjects() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Estrellas animadas
-            ctx.fillStyle = 'white';
-            for (let i = 0; i < 100; i++) {
-                ctx.fillRect(
-                    Math.sin(Date.now() * 0.001 + i) * canvas.width / 2 + canvas.width / 2,
-                    (i * 6 + Date.now() * 0.1) % canvas.height,
-                    2,
-                    2
-                );
-            }
+            // Dibujar jugador
+            drawPlayer();
 
-            if (gameState === 'playing') {
-                // Dibujar jugador
-                drawLeon(player.x, player.y);
-
-                // Dibujar balas
-                ctx.fillStyle = '#FF0';
-                bullets.forEach(bullet => {
-                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-                });
-
-                // Dibujar enemigos (triángulos de distinto tamaño/color)
-                enemies.forEach(enemy => {
-                    drawTriangleEnemy(enemy);
-                });
-            }
-
-            // Dibujar partículas de explosión
-            explosionParticles.forEach(particle => {
-                ctx.fillStyle = `rgba(255, ${Math.random() * 255}, 0, ${particle.life / 50})`;
-                ctx.fillRect(particle.x, particle.y, 3, 3);
-            });
-        }
-
-        /********************************************
-         * Funciones auxiliares
-         ********************************************/
-        function createRandomEnemy() {
-            const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
-            enemies.push({
-                x: Math.random() * (canvas.width - type.width),
-                y: 0,
-                width: type.width,
-                height: type.height,
-                speed: type.speed,
-                color: type.color,
-                points: type.points
-            });
-        }
-
-        // Verifica colisiones rectangulares
-        function checkCollision(rect1, rect2) {
-            return rect1.x < rect2.x + rect2.width &&
-                   rect1.x + rect1.width > rect2.x &&
-                   rect1.y < rect2.y + rect2.height &&
-                   rect1.y + rect1.height > rect2.y;
-        }
-
-        // Crear partículas de explosión
-        function createExplosion(x, y) {
-            for (let i = 0; i < 30; i++) {
-                const angle = (Math.PI * 2 / 30) * i;
-                explosionParticles.push({
-                    x: x,
-                    y: y,
-                    vx: Math.cos(angle) * 5,
-                    vy: Math.sin(angle) * 5,
-                    life: 30 // Duración de las partículas
-                });
-            }
-        }
-
-        // Dibujar jugador (León)
-        function drawLeon(x, y) {
-            ctx.save();
-            ctx.translate(x + 25, y + 25);
-            // Cuerpo (triángulo dorado)
-            ctx.beginPath();
-            ctx.moveTo(-25, 15);
-            ctx.lineTo(25, 15);
-            ctx.lineTo(0, -25);
-            ctx.closePath();
-            ctx.fillStyle = player.color;
-            ctx.fill();
-            // Melena
-            ctx.beginPath();
-            ctx.arc(0, 0, 20, 0, Math.PI * 2);
-            ctx.fillStyle = '#FFA500';
-            ctx.fill();
-            // Cara
-            ctx.beginPath();
-            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            // Dibujar balas
             ctx.fillStyle = '#FFD700';
-            ctx.fill();
-            // Ojos
-            ctx.fillStyle = 'black';
-            ctx.beginPath();
-            ctx.arc(-5, -2, 3, 0, Math.PI * 2);
-            ctx.arc(5, -2, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+            bullets.forEach((bullet) => {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+
+            // Dibujar enemigos
+            enemies.forEach((enemy) => {
+                ctx.fillStyle = enemy.color;
+                if (enemy.type === 'triangle') {
+                    ctx.beginPath();
+                    ctx.moveTo(enemy.x + enemy.size / 2, enemy.y);
+                    ctx.lineTo(enemy.x, enemy.y + enemy.size);
+                    ctx.lineTo(enemy.x + enemy.size, enemy.y + enemy.size);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (enemy.type === 'square') {
+                    ctx.fillRect(enemy.x, enemy.y, enemy.size, enemy.size);
+                } else if (enemy.type === 'circle') {
+                    ctx.beginPath();
+                    ctx.arc(enemy.x + enemy.size / 2, enemy.y + enemy.size / 2, enemy.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (enemy.type === 'pixel') {
+                    drawPixelEnemy(enemy);
+                }
+            });
         }
 
-        // Dibujar enemigo en forma de triángulo
-        function drawTriangleEnemy(enemy) {
-            ctx.fillStyle = enemy.color;
-            ctx.beginPath();
-            ctx.moveTo(enemy.x + enemy.width / 2, enemy.y);
-            ctx.lineTo(enemy.x, enemy.y + enemy.height);
-            ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
-            ctx.closePath();
-            ctx.fill();
+        /*******************************************
+         * Dibujar jugador
+         *******************************************/
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
         }
 
-        // Muerte inmediata: pantalla roja y texto "LOSER"
-        function gameOverImmediate() {
+        /*******************************************
+         * Dibujar enemigos tipo "pixel"
+         *******************************************/
+        function drawPixelEnemy(enemy) {
+            const pixelSize = enemy.size / 5;
+            for (let i = 0; i < 5; i++) {
+                for (let j = 0; j < 5; j++) {
+                    if (Math.random() > 0.5) {
+                        ctx.fillStyle = enemy.color;
+                        ctx.fillRect(enemy.x + i * pixelSize, enemy.y + j * pixelSize, pixelSize, pixelSize);
+                    }
+                }
+            }
+        }
+
+        /*******************************************
+         * Colisiones
+         *******************************************/
+        function checkCollision(obj1, obj2) {
+            return (
+                obj1.x < obj2.x + obj2.width &&
+                obj1.x + obj1.size > obj2.x &&
+                obj1.y < obj2.y + obj2.height &&
+                obj1.y + obj1.size > obj2.y
+            );
+        }
+
+        /*******************************************
+         * Game Over
+         *******************************************/
+        function gameOver() {
             gameState = 'gameOver';
-            redScreen.style.display = 'flex'; // Muestra pantalla roja
+            redScreen.style.display = 'flex';
         }
 
-        /********************************************
-         * Bucle de animación principal
-         ********************************************/
+        /*******************************************
+         * Bucle del juego
+         *******************************************/
         function gameLoop() {
-            update();
-            draw();
+            if (gameState === 'playing') {
+                updateObjects();
+                drawObjects();
+            }
             requestAnimationFrame(gameLoop);
         }
+
         gameLoop();
     </script>
 </body>
