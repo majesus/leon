@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>La Aventura Espacial de León - Versión Brutal</title>
+    <title>La Aventura Espacial de León - Versión Mejorada</title>
     <style>
         /* Ajustes generales */
         body {
@@ -32,6 +32,7 @@
             display: none;
             justify-content: center;
             align-items: center;
+            z-index: 2;
         }
 
         #loserText {
@@ -47,9 +48,10 @@
             font-size: 48px;
             text-align: center;
             background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
+            padding: 40px;
             border-radius: 10px;
             display: none;
+            z-index: 1;
         }
 
         #score {
@@ -58,6 +60,7 @@
             left: 20px;
             color: white;
             font-size: 24px;
+            z-index: 1;
         }
 
     </style>
@@ -79,6 +82,11 @@
         </div>
     </div>
 
+    <!-- Pantalla de transición -->
+    <div id="transitionScreen" class="overlay">
+        <div id="transitionText" style="font-size: 48px; color: #FFD700;"></div>
+    </div>
+
     <!-- Pantalla roja de "LOSER" -->
     <div id="redScreen">
         <div id="loserText">LOSER</div>
@@ -96,10 +104,13 @@
 
         const scoreValueDiv = document.getElementById('scoreValue');
         const startScreenDiv = document.getElementById('startScreen');
+        const transitionScreenDiv = document.getElementById('transitionScreen');
+        const transitionTextDiv = document.getElementById('transitionText');
         const redScreen = document.getElementById('redScreen');
 
-        let gameState = 'start'; // 'start', 'playingSpace', 'playingCave', 'gameOver'
+        let gameState = 'start'; // 'start', 'transition', 'playingSpace', 'playingCave', 'gameOver'
         let score = 0;
+        let level = 1; // Cada nivel representa 100 puntos
 
         let bullets = [];
         let enemies = [];
@@ -107,10 +118,10 @@
 
         // Configuración del jugador (León)
         const player = {
-            x: canvas.width / 2,
-            y: canvas.height - 100,
-            width: 50,
-            height: 50,
+            x: canvas.width / 2 - 15, // Ajustado para la nueva anchura
+            y: canvas.height - 80, // Ajustado para la nueva altura
+            width: 30,
+            height: 30,
             speed: 5,
             color: '#FFD700'
         };
@@ -143,12 +154,12 @@
                     startGame();
                 } else if (gameState === 'gameOver') {
                     resetGame();
+                } else if (gameState === 'transition') {
+                    // Ignorar durante la transición
                 }
             }
-            if (gameState === 'playingSpace' || gameState === 'playingCave') {
-                if (e.code === 'Space') {
-                    shoot();
-                }
+            if ((gameState === 'playingSpace' || gameState === 'playingCave') && e.code === 'Space') {
+                shoot();
             }
         });
 
@@ -174,16 +185,15 @@
         function resetGame() {
             gameState = 'playingSpace';
             redScreen.style.display = 'none';
+            transitionScreenDiv.style.display = 'none';
             score = 0;
+            level = 1;
             scoreValueDiv.textContent = score;
             enemies = [];
             bullets = [];
             explosionParticles = [];
-            player.x = canvas.width / 2;
-            player.y = canvas.height - 100;
-            // Resetear fondo a espacio
-            canvas.style.background = "url('background_space.jpg') no-repeat center center";
-            canvas.style.backgroundSize = "cover";
+            player.x = canvas.width / 2 - player.width / 2;
+            player.y = canvas.height - 80;
         }
 
         /*******************************************
@@ -215,35 +225,42 @@
 
         // Crear enemigos aleatorios
         function createEnemy() {
+            let enemyType, size, enemy;
             if (gameState === 'playingSpace') {
-                const randomType = enemyTypesSpace[Math.floor(Math.random() * enemyTypesSpace.length)];
-                const size = randomType.type === 'triangle' ? 30 : randomType.type === 'square' ? 40 : 50;
-                enemies.push({
+                enemyType = enemyTypesSpace[Math.floor(Math.random() * enemyTypesSpace.length)];
+                size = enemyType.type === 'triangle' ? 30 : enemyType.type === 'square' ? 40 : 50;
+                enemy = {
                     x: Math.random() * (canvas.width - size),
                     y: -size,
                     size: size,
-                    speed: Math.random() * 2 + 1,
-                    type: randomType.type,
-                    color: randomType.color,
-                    points: randomType.points,
+                    speed: (Math.random() * 2 + 1) * getSpeedMultiplier(),
+                    type: enemyType.type,
+                    color: enemyType.color,
+                    points: enemyType.points,
                     dx: 0,
-                    dy: Math.random() * 2 + 1
-                });
+                    dy: enemyType.type === 'pixel' ? (Math.random() * 1 + 1) * getSpeedMultiplier() : (Math.random() * 2 + 1) * getSpeedMultiplier()
+                };
             } else if (gameState === 'playingCave') {
-                const randomType = enemyTypesCave[Math.floor(Math.random() * enemyTypesCave.length)];
-                const size = randomType.type === 'triangle' ? 30 : randomType.type === 'square' ? 40 : 50;
-                enemies.push({
+                enemyType = enemyTypesCave[Math.floor(Math.random() * enemyTypesCave.length)];
+                size = enemyType.type === 'triangle' ? 30 : enemyType.type === 'square' ? 40 : 50;
+                enemy = {
                     x: -size,
                     y: Math.random() * (canvas.height - size),
                     size: size,
-                    speed: Math.random() * 2 + 1,
-                    type: randomType.type,
-                    color: randomType.color,
-                    points: randomType.points,
-                    dx: Math.random() * 2 + 1,
+                    speed: (Math.random() * 2 + 1) * getSpeedMultiplier(),
+                    type: enemyType.type,
+                    color: enemyType.color,
+                    points: enemyType.points,
+                    dx: enemyType.type === 'pixel' ? (Math.random() * 1 + 1) * getSpeedMultiplier() : (Math.random() * 2 + 1) * getSpeedMultiplier(),
                     dy: 0
-                });
+                };
             }
+            enemies.push(enemy);
+        }
+
+        // Obtener multiplicador de velocidad según el nivel
+        function getSpeedMultiplier() {
+            return 1 + (level - 1) * 0.2;
         }
 
         // Actualizar objetos
@@ -270,13 +287,14 @@
                 return true;
             });
 
-            // Movimiento de enemigos
+            // Generar enemigos con diferente frecuencia según el modo
             if (gameState === 'playingSpace') {
                 if (Math.random() < 0.02) createEnemy();
             } else if (gameState === 'playingCave') {
                 if (Math.random() < 0.03) createEnemy();
             }
 
+            // Movimiento de enemigos
             enemies = enemies.filter((enemy) => {
                 enemy.x += enemy.dx;
                 enemy.y += enemy.dy;
@@ -296,10 +314,12 @@
                         enemies.splice(enemies.indexOf(enemy), 1);
                         bullets.splice(bullets.indexOf(bullet), 1);
                         // Verificar si se alcanza el puntaje para cambiar de fase
-                        if (score >= 100 && gameState === 'playingSpace') {
-                            enterCaveMode();
+                        if (score >= level * 100) {
+                            if (level * 100 < 1000) {
+                                transitionToNextMode();
+                            }
                         }
-                        return false;
+                        break;
                     }
                 }
 
@@ -357,11 +377,18 @@
         }
 
         /*******************************************
-         * Dibujar jugador
+         * Dibujar jugador (Nave con forma de león pixelado)
          *******************************************/
         function drawPlayer() {
             ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // Dibujar un león simple pixelado
+            // Puedes personalizar esta parte para crear un diseño más detallado
+            ctx.fillRect(player.x, player.y + 10, player.width, player.height - 10); // Cuerpo
+            ctx.fillRect(player.x + 5, player.y, 5, 10); // Cabeza
+            ctx.fillRect(player.x + 20, player.y, 5, 10); // Cabeza
+            // Añadir detalles como la melena
+            ctx.fillStyle = '#FFA500';
+            ctx.fillRect(player.x + 3, player.y + 5, 24, 5); // Melena
         }
 
         /*******************************************
@@ -400,6 +427,30 @@
         }
 
         /*******************************************
+         * Transición entre modos
+         *******************************************/
+        function transitionToNextMode() {
+            gameState = 'transition';
+            transitionScreenDiv.style.display = 'flex';
+            transitionTextDiv.textContent = (gameState === 'playingSpace') ? 'Ingresando a la Caverna...' : 'Volviendo al Espacio...';
+            setTimeout(() => {
+                transitionScreenDiv.style.display = 'none';
+                switchMode();
+            }, 2000); // Duración de la transición (2 segundos)
+        }
+
+        function switchMode() {
+            // Incrementar nivel
+            level += 1;
+
+            if (gameState === 'playingSpace') {
+                enterCaveMode();
+            } else if (gameState === 'playingCave') {
+                enterSpaceMode();
+            }
+        }
+
+        /*******************************************
          * Entrar en modo caverna
          *******************************************/
         function enterCaveMode() {
@@ -407,9 +458,22 @@
             // Cambiar fondo a caverna
             canvas.style.background = "url('background_cave.jpg') no-repeat center center";
             canvas.style.backgroundSize = "cover";
-            // Opcional: ajustar posición del jugador si es necesario
-            player.x = 50; // Por ejemplo, empezar en la izquierda
+            // Ajustar posición del jugador si es necesario
+            player.x = 50; // Empezar a la izquierda
             player.y = canvas.height / 2 - player.height / 2;
+        }
+
+        /*******************************************
+         * Entrar en modo espacio
+         *******************************************/
+        function enterSpaceMode() {
+            gameState = 'playingSpace';
+            // Cambiar fondo a espacio
+            canvas.style.background = "url('background_space.jpg') no-repeat center center";
+            canvas.style.backgroundSize = "cover";
+            // Ajustar posición del jugador si es necesario
+            player.x = canvas.width / 2 - player.width / 2;
+            player.y = canvas.height - 80;
         }
 
         /*******************************************
@@ -419,6 +483,9 @@
             if (gameState === 'playingSpace' || gameState === 'playingCave') {
                 updateObjects();
                 drawObjects();
+            } else if (gameState === 'transition') {
+                // Mostrar pantalla de transición
+                // Ya está manejado por las funciones de transición
             }
             requestAnimationFrame(gameLoop);
         }
