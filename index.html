@@ -285,29 +285,32 @@
                 enemyType = enemyTypesCave[Math.floor(Math.random() * enemyTypesCave.length)];
                 size = enemyType.type === 'triangle' ? 30 : enemyType.type === 'square' ? 40 : enemyType.type === 'circle' ? 30 : 25;
                 enemy = {
-                    x: -size, // Diferencia clave
+                    x: -size,
                     y: Math.random() * (canvas.height - size),
                     width: size,
                     height: size,
                     type: enemyType.type,
                     color: enemyType.color,
                     points: enemyType.points,
-                    dx: Math.random() * 2 + 1, // Ahora se mueven hacia la derecha
+                    dx: Math.random() * 2 + 1,
                     dy: 0
                 };
             } else if (gameState === 'playingVolcano') {
                 enemyType = enemyTypesVolcano[Math.floor(Math.random() * enemyTypesVolcano.length)];
                 size = enemyType.type === 'triangle' ? 35 : enemyType.type === 'square' ? 45 : enemyType.type === 'circle' ? 40 : 30;
+                
+                // *** Cambio para que aparezcan por detrás del jugador ***
                 enemy = {
                     x: Math.random() * (canvas.width - size),
-                    y: -size,
+                    y: canvas.height + size, // Aparecen por debajo del canvas
                     width: size,
                     height: size,
                     type: enemyType.type,
                     color: enemyType.color,
                     points: enemyType.points,
                     dx: 0,
-                    dy: Math.random() * 3 + 1
+                    dy: -(Math.random() * 3 + 1), // Se mueven hacia arriba
+                    start: 'back'
                 };
             }
             enemies.push(enemy);
@@ -392,9 +395,9 @@
                         console.log(`Enemigo salió de la pantalla: Tipo=${enemy.type}`);
                     }
                 } else if (gameState === 'playingVolcano') {
-                    if (enemy.y > canvas.height) {
+                    if (enemy.y < 0 - enemy.height && enemy.start == 'back') { // Si ha salido de la pantalla
                         enemies.splice(i, 1);
-                        console.log(`Enemigo salió de la pantalla: Tipo=${enemy.type}`);
+                        console.log(`Enemigo salió de la pantalla por la parte superior: Tipo=${enemy.type}`);
                     }
                 }
             }
@@ -463,7 +466,7 @@
                 if (enemy.type === 'triangle') {
                     ctx.beginPath();
                     if (gameState === 'playingSpace' || gameState === 'playingVolcano') {
-                        // Triángulo apuntando hacia abajo
+                        // Triángulo apuntando hacia abajo (o arriba si es del volcán y viene de atrás)
                         ctx.moveTo(enemy.x + enemy.width / 2, enemy.y);
                         ctx.lineTo(enemy.x, enemy.y + enemy.height);
                         ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
